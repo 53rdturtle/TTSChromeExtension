@@ -58,8 +58,8 @@ class FloatingControlBar {
     style.textContent = `
       #tts-floating-control-bar {
         position: fixed;
-        top: 20px;
-        left: calc(100vw - 220px);
+        bottom: 20px !important;
+        left: 20px !important;
         z-index: 10000;
         background: #ffffff;
         border: 1px solid #ddd;
@@ -68,6 +68,9 @@ class FloatingControlBar {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 14px;
         min-width: 200px;
+        height: auto;
+        max-height: 220px;
+        overflow: auto;
         opacity: 0;
         transform: translateY(-10px);
         transition: opacity 0.3s ease, transform 0.3s ease;
@@ -311,9 +314,10 @@ class FloatingControlBar {
       document.body.appendChild(this.controlBar);
       this.isVisible = true;
       
-      // Set initial position (top-right corner)
-      this.controlBar.style.left = 'calc(100vw - 220px)';
-      this.controlBar.style.top = '20px';
+      // Set initial position (bottom-left corner)
+      this.controlBar.style.left = '20px';
+      this.controlBar.style.bottom = '20px';
+      this.controlBar.style.top = 'auto';
       this.controlBar.style.right = 'auto';
       
       // Trigger animation
