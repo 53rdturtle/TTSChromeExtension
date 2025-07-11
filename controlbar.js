@@ -58,8 +58,10 @@ class FloatingControlBar {
     style.textContent = `
       #tts-floating-control-bar {
         position: fixed;
-        bottom: 20px !important;
-        left: 20px !important;
+        top: auto;
+        right: auto;
+        bottom: 20px;
+        left: 20px;
         z-index: 10000;
         background: #ffffff;
         border: 1px solid #ddd;
@@ -313,12 +315,6 @@ class FloatingControlBar {
     if (!this.isVisible) {
       document.body.appendChild(this.controlBar);
       this.isVisible = true;
-      
-      // Set initial position (bottom-left corner)
-      this.controlBar.style.left = '20px';
-      this.controlBar.style.bottom = '20px';
-      this.controlBar.style.top = 'auto';
-      this.controlBar.style.right = 'auto';
       
       // Trigger animation
       setTimeout(() => {
