@@ -56,7 +56,7 @@ Open the extension popup to:
 TTSChromeExtension/
 ├── manifest.json          # Extension configuration
 ├── background.js          # Service worker (main logic)
-├── content.js            # Content script (floating control bar)
+├── controlbar.js         # Content script (floating control bar)
 ├── popup.html            # Extension popup interface
 ├── popup.js              # Popup functionality
 ├── icon16.png            # Extension icon (16x16)
@@ -74,7 +74,7 @@ TTSChromeExtension/
 - Communicates with content scripts
 - Tracks TTS state (speaking, paused, stopped)
 
-### Content Script (`content.js`)
+### Content Script (`controlbar.js`)
 - Injects floating control bar into web pages
 - Handles user interactions with control buttons
 - Manages control bar visibility and animations

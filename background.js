@@ -349,7 +349,7 @@ async function showFloatingControlBar() {
       // Inject content script if not already injected
       await chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        files: ['content.js']
+        files: ['controlbar.js']
       });
       
       // Send message to show control bar with current state
