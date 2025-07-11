@@ -56,6 +56,7 @@ async function getSelectedTextFromActiveTab() {
 class TTSService {
   constructor() {
     this.isSpeaking = false;
+    this.isPaused = false;
   }
 
   // Speak the given text with specified options
@@ -75,9 +76,11 @@ class TTSService {
         if (chrome.runtime.lastError) {
           console.error('TTS Speak Error:', chrome.runtime.lastError);
           this.isSpeaking = false;
+          this.isPaused = false;
           reject(chrome.runtime.lastError.message);
         } else {
           this.isSpeaking = true;
+          this.isPaused = false;
           resolve({ status: 'speaking' });
         }
       });
@@ -89,7 +92,28 @@ class TTSService {
     return new Promise((resolve) => {
       chrome.tts.stop();
       this.isSpeaking = false;
+      this.isPaused = false;
       resolve({ status: 'stopped' });
+    });
+  }
+
+  // Pause current TTS playback
+  pause() {
+    return new Promise((resolve) => {
+      chrome.tts.pause();
+      this.isSpeaking = false;
+      this.isPaused = true;
+      resolve({ status: 'paused' });
+    });
+  }
+
+  // Resume paused TTS playback
+  resume() {
+    return new Promise((resolve) => {
+      chrome.tts.resume();
+      this.isSpeaking = true;
+      this.isPaused = false;
+      resolve({ status: 'resumed' });
     });
   }
 
@@ -111,6 +135,14 @@ class TTSService {
   getSpeakingStatus() {
     return this.isSpeaking;
   }
+
+  // Get current TTS state
+  getState() {
+    return {
+      isSpeaking: this.isSpeaking,
+      isPaused: this.isPaused
+    };
+  }
 }
 
 // Message handler class to manage communication
@@ -129,6 +161,12 @@ class MessageHandler {
           break;
         case 'stop':
           await this.handleStop(sendResponse);
+          break;
+        case 'pause':
+          await this.handlePause(sendResponse);
+          break;
+        case 'resume':
+          await this.handleResume(sendResponse);
           break;
         case 'getVoices':
           await this.handleGetVoices(sendResponse);
@@ -185,6 +223,26 @@ class MessageHandler {
     }
   }
 
+  // Handle pause message
+  async handlePause(sendResponse) {
+    try {
+      const result = await this.ttsService.pause();
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({ status: 'error', error: error });
+    }
+  }
+
+  // Handle resume message
+  async handleResume(sendResponse) {
+    try {
+      const result = await this.ttsService.resume();
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({ status: 'error', error: error });
+    }
+  }
+
   // Handle get voices message
   async handleGetVoices(sendResponse) {
     try {
@@ -235,8 +293,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Handle TTS events
 chrome.tts.onEvent.addListener((event) => {
+  console.log('TTS Event:', event.type);
+  
   if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
     ttsService.isSpeaking = false;
+    ttsService.isPaused = false;
+    // Hide floating control bar when TTS stops
+    hideFloatingControlBar();
+  } else if (event.type === "pause") {
+    ttsService.isSpeaking = false;
+    ttsService.isPaused = true;
+  } else if (event.type === "resume") {
+    ttsService.isSpeaking = true;
+    ttsService.isPaused = false;
   }
 });
 
@@ -263,11 +332,49 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
             console.error('TTS Error:', chrome.runtime.lastError);
           } else {
             console.log('Speaking selected text:', selectedText);
+            // Show floating control bar on active tab
+            showFloatingControlBar();
           }
         });
       });
     }
   }
 });
+
+// Function to show floating control bar on active tab
+async function showFloatingControlBar() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs && tabs[0]) {
+      // Inject content script if not already injected
+      await chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        files: ['content.js']
+      });
+      
+      // Send message to show control bar with current state
+      const state = ttsService.getState();
+      chrome.tabs.sendMessage(tabs[0].id, { 
+        type: 'showControlBar',
+        isSpeaking: state.isSpeaking,
+        isPaused: state.isPaused
+      });
+    }
+  } catch (error) {
+    console.error('Error showing floating control bar:', error);
+  }
+}
+
+// Function to hide floating control bar
+async function hideFloatingControlBar() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs && tabs[0]) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'hideControlBar' });
+    }
+  } catch (error) {
+    console.error('Error hiding floating control bar:', error);
+  }
+}
 
 console.log('TTS Chrome Extension background script loaded'); 

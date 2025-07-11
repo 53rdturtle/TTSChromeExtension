@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Extension Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>TTS Chrome Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <p>To test the TTS extension with floating control bar:</p>
+        <ol>
+            <li>Select any text on this page</li>
+            <li>Press <strong>Ctrl+Shift+Z</strong> (or your configured shortcut)</li>
+            <li>A floating control bar should appear in the top-right corner</li>
+            <li>Use the control bar to stop, pause, or resume the TTS</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Sample Text for Testing</h2>
+        
+        <div class="highlight">
+            <strong>Short text:</strong> This is a short sentence to test the TTS functionality.
+        </div>
+        
+        <div class="highlight">
+            <strong>Medium text:</strong> This is a longer paragraph that contains multiple sentences. It should be enough text to test the pause and resume functionality of the TTS extension. You can select this entire paragraph and use the keyboard shortcut to start the text-to-speech.
+        </div>
+        
+        <div class="highlight">
+            <strong>Long text:</strong> This is a much longer piece of text that will take more time to read aloud. It contains multiple paragraphs and should provide a good test for the floating control bar functionality. The control bar should remain visible throughout the entire reading process, allowing you to pause, resume, or stop the speech at any time. This is particularly useful when you want to control the playback of longer articles or documents that you're having read aloud to you.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Expected Behavior</h2>
+        <ul>
+            <li>When you press the shortcut with text selected, TTS should start</li>
+            <li>A floating control bar should appear in the top-right corner</li>
+            <li>The control bar should have Stop, Pause, and Resume buttons</li>
+            <li>Buttons should be enabled/disabled based on the current state</li>
+            <li>The control bar should disappear when TTS ends or is stopped</li>
+            <li>You should be able to close the control bar manually</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Troubleshooting</h2>
+        <ul>
+            <li>Make sure the extension is installed and enabled</li>
+            <li>Check that you have selected text before pressing the shortcut</li>
+            <li>Verify that the shortcut is working (check extension settings)</li>
+            <li>Look at the browser console for any error messages</li>
+        </ul>
+    </div>
+</body>
+</html> 
