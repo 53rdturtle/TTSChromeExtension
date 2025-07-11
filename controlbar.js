@@ -5,6 +5,8 @@ class FloatingControlBar {
   constructor() {
     this.controlBar = null;
     this.isVisible = false;
+    this.isDragging = false;
+    this.dragOffset = { x: 0, y: 0 };
     this.init();
   }
 
@@ -14,7 +16,7 @@ class FloatingControlBar {
     this.controlBar.id = 'tts-floating-control-bar';
     this.controlBar.innerHTML = `
       <div class="tts-control-container">
-        <div class="tts-control-header">
+        <div class="tts-control-header" id="tts-drag-handle">
           <span class="tts-title">TTS Controls</span>
           <button class="tts-close-btn" id="tts-close-btn">×</button>
         </div>
@@ -57,7 +59,7 @@ class FloatingControlBar {
       #tts-floating-control-bar {
         position: fixed;
         top: 20px;
-        right: 20px;
+        left: calc(100vw - 220px);
         z-index: 10000;
         background: #ffffff;
         border: 1px solid #ddd;
@@ -87,6 +89,13 @@ class FloatingControlBar {
         margin-bottom: 12px;
         padding-bottom: 8px;
         border-bottom: 1px solid #eee;
+        cursor: move;
+        user-select: none;
+      }
+
+      .tts-control-header.dragging {
+        cursor: grabbing;
+        background-color: #f8f9fa;
       }
 
       .tts-title {
@@ -214,12 +223,99 @@ class FloatingControlBar {
         }
       });
     });
+
+    // Drag functionality
+    this.addDragListeners();
+  }
+
+  addDragListeners() {
+    const dragHandle = this.controlBar.querySelector('#tts-drag-handle');
+    
+    // Mouse events for drag
+    dragHandle.addEventListener('mousedown', (e) => {
+      this.startDrag(e);
+    });
+
+    // Touch events for mobile drag
+    dragHandle.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      this.startDrag(e.touches[0]);
+    });
+
+    // Prevent text selection during drag
+    dragHandle.addEventListener('selectstart', (e) => {
+      e.preventDefault();
+    });
+  }
+
+  startDrag(e) {
+    this.isDragging = true;
+    const rect = this.controlBar.getBoundingClientRect();
+    this.dragOffset.x = e.clientX - rect.left;
+    this.dragOffset.y = e.clientY - rect.top;
+    
+    // Add dragging class for visual feedback
+    const dragHandle = this.controlBar.querySelector('#tts-drag-handle');
+    dragHandle.classList.add('dragging');
+
+    // Add global event listeners
+    document.addEventListener('mousemove', this.handleDragMove.bind(this));
+    document.addEventListener('mouseup', this.stopDrag.bind(this));
+    document.addEventListener('touchmove', this.handleDragMove.bind(this));
+    document.addEventListener('touchend', this.stopDrag.bind(this));
+  }
+
+  handleDragMove(e) {
+    if (!this.isDragging) return;
+    
+    e.preventDefault();
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    
+    // Calculate new position
+    const newX = clientX - this.dragOffset.x;
+    const newY = clientY - this.dragOffset.y;
+    
+    // Keep control bar within viewport bounds
+    const rect = this.controlBar.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width;
+    const maxY = window.innerHeight - rect.height;
+    
+    const boundedX = Math.max(0, Math.min(newX, maxX));
+    const boundedY = Math.max(0, Math.min(newY, maxY));
+    
+    // Apply new position
+    this.controlBar.style.left = boundedX + 'px';
+    this.controlBar.style.top = boundedY + 'px';
+    this.controlBar.style.right = 'auto';
+  }
+
+  stopDrag() {
+    if (!this.isDragging) return;
+    
+    this.isDragging = false;
+    
+    // Remove dragging class
+    const dragHandle = this.controlBar.querySelector('#tts-drag-handle');
+    dragHandle.classList.remove('dragging');
+    
+    // Remove global event listeners
+    document.removeEventListener('mousemove', this.handleDragMove.bind(this));
+    document.removeEventListener('mouseup', this.stopDrag.bind(this));
+    document.removeEventListener('touchmove', this.handleDragMove.bind(this));
+    document.removeEventListener('touchend', this.stopDrag.bind(this));
   }
 
   show() {
     if (!this.isVisible) {
       document.body.appendChild(this.controlBar);
       this.isVisible = true;
+      
+      // Set initial position (top-right corner)
+      this.controlBar.style.left = 'calc(100vw - 220px)';
+      this.controlBar.style.top = '20px';
+      this.controlBar.style.right = 'auto';
+      
       // Trigger animation
       setTimeout(() => {
         this.controlBar.classList.add('visible');
