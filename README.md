@@ -1,129 +1,207 @@
 # TTS Chrome Extension
 
-A Chrome extension that provides text-to-speech functionality with a floating control bar for easy playback control.
+A comprehensive TTS (Text-to-Speech) Chrome extension with full testing suite.
 
-## Features
-
-- **Text-to-Speech**: Convert selected text to speech using Chrome's built-in TTS engine
-- **Keyboard Shortcut**: Use `Ctrl+Shift+Z` (configurable) to start TTS for selected text
-- **Floating Control Bar**: A modern, animated control bar that appears when TTS is active
-- **Playback Controls**: Stop, pause, and resume TTS playback
-- **Voice Selection**: Choose from available system voices
-- **Speech Rate Control**: Adjust the speed of speech playback
-
-## Installation
-
-1. Download or clone this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select the `TTSChromeExtension` folder
-5. The extension should now be installed and active
-
-## Usage
-
-### Basic Usage
-
-1. Select any text on a webpage
-2. Press `Ctrl+Shift+Z` (or your configured shortcut)
-3. The selected text will be read aloud using text-to-speech
-4. A floating control bar will appear in the top-right corner
-
-### Floating Control Bar
-
-The floating control bar provides the following controls:
-
-- **Stop (⏹)**: Immediately stop the current TTS playback
-- **Pause (⏸)**: Pause the current TTS playback
-- **Resume (▶)**: Resume paused TTS playback
-- **Close (×)**: Manually close the control bar
-
-The control bar automatically:
-- Appears when TTS starts
-- Updates button states based on playback status
-- Disappears when TTS ends or is stopped
-- Features smooth animations for better UX
-
-### Advanced Settings
-
-Open the extension popup to:
-- Select your preferred voice
-- Adjust speech rate
-- Configure other TTS options
-
-## File Structure
+## Project Structure
 
 ```
 TTSChromeExtension/
-├── manifest.json          # Extension configuration
-├── background.js          # Service worker (main logic)
-├── controlbar.js         # Content script (floating control bar)
-├── popup.html            # Extension popup interface
-├── popup.js              # Popup functionality
-├── icon16.png            # Extension icon (16x16)
-├── icon48.png            # Extension icon (48x48)
-├── icon128.png           # Extension icon (128x128)
-├── test.html             # Test page for functionality
-└── README.md             # This file
+├── extension/           # Chrome extension files
+│   ├── manifest.json    # Extension manifest
+│   ├── background.js    # Service worker
+│   ├── popup.html       # Extension popup
+│   ├── popup.js         # Popup logic
+│   ├── controlbar.js    # Content script
+│   ├── test.html        # Test page
+│   └── icons/           # Extension icons
+├── tests/               # Test suite
+│   ├── background.test.js
+│   ├── popup.test.js
+│   ├── controlbar.test.js
+│   ├── integration.test.js
+│   ├── e2e.test.js
+│   └── setup.js
+├── package.json         # Dependencies and scripts
+└── README.md           # This file
 ```
 
-## Technical Details
+## Test Structure
 
-### Background Script (`background.js`)
-- Handles TTS operations using Chrome's TTS API
-- Manages keyboard shortcuts
-- Communicates with content scripts
-- Tracks TTS state (speaking, paused, stopped)
+### Unit Tests
+- **`tests/background.test.js`** - Tests for TTSService and MessageHandler classes
+- **`tests/popup.test.js`** - Tests for TTSController class and popup functionality
+- **`tests/controlbar.test.js`** - Tests for FloatingControlBar class and content script
 
-### Content Script (`controlbar.js`)
-- Injects floating control bar into web pages
-- Handles user interactions with control buttons
-- Manages control bar visibility and animations
-- Communicates with background script for TTS control
+### Integration Tests
+- **`tests/integration.test.js`** - End-to-end message passing and workflow tests
 
-### Permissions Used
-- `storage`: Save user preferences
-- `activeTab`: Access selected text from current tab
-- `tts`: Use Chrome's text-to-speech API
-- `scripting`: Inject content scripts dynamically
+### E2E Tests
+- **`tests/e2e.test.js`** - Browser-based tests using Puppeteer
 
-## Testing
+## Setup
 
-Use the included `test.html` file to test the extension:
-1. Open `test.html` in Chrome
-2. Select text from the sample content
-3. Press `Ctrl+Shift+Z`
-4. Verify the floating control bar appears and functions correctly
+Install dependencies:
+```bash
+npm install
+```
 
-## Browser Compatibility
+## Running Tests
 
-This extension requires Chrome 88+ or any Chromium-based browser that supports Manifest V3.
+### All Tests
+```bash
+npm test
+```
 
-## Troubleshooting
+### Watch Mode
+```bash
+npm run test:watch
+```
 
-### Control Bar Not Appearing
-- Ensure text is selected before pressing the shortcut
-- Check that the extension is enabled
-- Verify the keyboard shortcut is working
-- Check browser console for error messages
+### Coverage Report
+```bash
+npm run test:coverage
+```
 
-### TTS Not Working
-- Ensure the page allows content scripts
-- Check that Chrome's TTS API is available
-- Verify system voices are installed
+### E2E Tests Only
+```bash
+npm run test:e2e
+```
 
-### Permission Issues
-- Make sure all required permissions are granted
-- Try reinstalling the extension if needed
+## Test Coverage
 
-## Development
+The test suite covers:
 
-To modify the extension:
+### TTSService Class (`extension/background.js:56-146`)
+- ✅ Constructor initialization
+- ✅ `speak()` method with various options
+- ✅ `stop()`, `pause()`, `resume()` functionality
+- ✅ `getVoices()` API integration
+- ✅ Error handling for TTS failures
+- ✅ State management
 
-1. Edit the relevant files
-2. Go to `chrome://extensions/`
-3. Click the refresh icon on the extension
-4. Test your changes
+### MessageHandler Class (`extension/background.js:149-281`)
+- ✅ Message routing for all message types
+- ✅ Async response handling
+- ✅ Error propagation
+- ✅ Parameter validation
 
-## License
+### TTSController Class (`extension/popup.js:4-339`)
+- ✅ DOM element initialization
+- ✅ Voice population and selection
+- ✅ Rate control and persistence
+- ✅ Text input handling
+- ✅ Button state management
+- ✅ Storage operations
 
-This project is open source and available under the MIT License. 
+### FloatingControlBar Class (`extension/controlbar.js:4-357`)
+- ✅ Show/hide functionality
+- ✅ Drag behavior and positioning
+- ✅ Button interactions
+- ✅ State updates and UI synchronization
+
+### Integration Tests
+- ✅ End-to-end TTS workflow
+- ✅ Message passing between components
+- ✅ Storage integration
+- ✅ Tab interaction
+- ✅ Error handling
+- ✅ Keyboard shortcuts
+
+### E2E Tests
+- ✅ Extension loading
+- ✅ Popup functionality
+- ✅ Test page interactions
+- ✅ Content script injection
+- ✅ Performance tests
+- ✅ Responsive design
+
+## Test Cases by Use Case
+
+### Basic TTS Functionality
+- Speaking text with default settings
+- Speaking text with custom voice and rate
+- Stopping TTS playback
+- Pausing and resuming TTS
+
+### Voice Management
+- Loading available voices
+- Selecting and saving voice preferences
+- Handling voice API errors
+
+### User Interface
+- Popup interface interactions
+- Button state management during TTS
+- Error message display
+- Rate slider functionality
+
+### Storage & Persistence
+- Saving and loading user preferences
+- Text persistence between sessions
+- Voice and rate settings
+
+### Content Script Integration
+- Floating control bar display
+- Drag functionality
+- Button interactions
+- Status updates
+
+### Error Scenarios
+- TTS API failures
+- Empty text input
+- No available voices
+- Tab access errors
+- Storage errors
+
+### Performance
+- Quick popup loading
+- Responsive UI updates
+- Memory usage during long TTS sessions
+
+## Mocking Strategy
+
+### Chrome APIs
+- `chrome.tts.*` - TTS functionality
+- `chrome.storage.*` - Data persistence
+- `chrome.tabs.*` - Tab management
+- `chrome.runtime.*` - Message passing
+- `chrome.scripting.*` - Content script injection
+
+### DOM APIs
+- Document methods and properties
+- Element creation and manipulation
+- Event handling
+- Window properties
+
+## Continuous Integration
+
+The test suite is designed to work in CI/CD environments:
+- All tests use mocked Chrome APIs
+- E2E tests can run in headless mode
+- Coverage reports are generated
+- Tests are isolated and independent
+
+## Contributing
+
+When adding new functionality:
+
+1. **Write unit tests** for individual functions/classes
+2. **Add integration tests** for component interactions
+3. **Update E2E tests** for user-facing features
+4. **Maintain test coverage** above 80%
+5. **Mock external dependencies** appropriately
+
+## Test Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Run all tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Generate coverage report |
+| `npm run test:e2e` | Run E2E tests only |
+
+## Coverage Goals
+
+- **Unit Tests**: 90%+ coverage
+- **Integration Tests**: All critical workflows
+- **E2E Tests**: All user interactions
+- **Overall**: 85%+ code coverage
