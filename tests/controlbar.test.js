@@ -70,6 +70,9 @@ describe('FloatingControlBar', () => {
       'tts-toggle-btn': createMockElement('tts-toggle-btn', 'button'),
       'tts-toggle-icon': createMockElement('tts-toggle-icon', 'span'),
       'tts-toggle-text': createMockElement('tts-toggle-text', 'span'),
+      'tts-speed-down-btn': createMockElement('tts-speed-down-btn', 'button'),
+      'tts-speed-up-btn': createMockElement('tts-speed-up-btn', 'button'),
+      'tts-speed-display': createMockElement('tts-speed-display', 'span'),
       'tts-drag-handle': createMockElement('tts-drag-handle', 'div')
     };
     
@@ -179,13 +182,15 @@ describe('FloatingControlBar', () => {
   });
 
   describe('updateStatus', () => {
-    let stopBtn, toggleBtn, toggleIcon, toggleText;
+    let stopBtn, toggleBtn, toggleIcon, toggleText, speedDownBtn, speedUpBtn;
 
     beforeEach(() => {
       stopBtn = mockButtons['tts-stop-btn'];
       toggleBtn = mockButtons['tts-toggle-btn'];
       toggleIcon = mockButtons['tts-toggle-icon'];
       toggleText = mockButtons['tts-toggle-text'];
+      speedDownBtn = mockButtons['tts-speed-down-btn'];
+      speedUpBtn = mockButtons['tts-speed-up-btn'];
     });
 
     test('should show pause button when speaking', () => {
@@ -196,6 +201,8 @@ describe('FloatingControlBar', () => {
       expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
       expect(toggleIcon.textContent).toBe('⏸');
       expect(toggleText.textContent).toBe('Pause');
+      expect(speedDownBtn.disabled).toBe(false);
+      expect(speedUpBtn.disabled).toBe(false);
     });
 
     test('should show resume button when paused', () => {
@@ -206,6 +213,8 @@ describe('FloatingControlBar', () => {
       expect(toggleBtn.classList.add).toHaveBeenCalledWith('resume-state');
       expect(toggleIcon.textContent).toBe('▶');
       expect(toggleText.textContent).toBe('Resume');
+      expect(speedDownBtn.disabled).toBe(false);
+      expect(speedUpBtn.disabled).toBe(false);
     });
 
     test('should disable all buttons when not speaking', () => {
@@ -216,6 +225,8 @@ describe('FloatingControlBar', () => {
       expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
       expect(toggleIcon.textContent).toBe('⏸');
       expect(toggleText.textContent).toBe('Pause');
+      expect(speedDownBtn.disabled).toBe(true);
+      expect(speedUpBtn.disabled).toBe(true);
     });
   });
 

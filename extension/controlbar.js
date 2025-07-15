@@ -33,6 +33,17 @@ class FloatingControlBar {
               <span class="tts-toggle-text" id="tts-toggle-text">Pause</span>
             </button>
           </div>
+          <div class="tts-control-item tts-speed-controls">
+            <button class="tts-btn tts-speed-btn tts-speed-down-btn" id="tts-speed-down-btn">
+              <span class="tts-icon">🐌</span>
+              Slower
+            </button>
+            <span class="tts-speed-display" id="tts-speed-display">1.0x</span>
+            <button class="tts-btn tts-speed-btn tts-speed-up-btn" id="tts-speed-up-btn">
+              <span class="tts-icon">🐰</span>
+              Faster
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -184,6 +195,50 @@ class FloatingControlBar {
         background: #218838;
       }
 
+      .tts-speed-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tts-speed-btn {
+        background: #6c757d;
+        color: white;
+        flex: 0 0 auto;
+        min-width: 70px;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .tts-speed-btn:hover {
+        background: #5a6268;
+      }
+
+      .tts-speed-down-btn {
+        background: #fd7e14;
+      }
+
+      .tts-speed-down-btn:hover {
+        background: #e8690b;
+      }
+
+      .tts-speed-up-btn {
+        background: #20c997;
+      }
+
+      .tts-speed-up-btn:hover {
+        background: #1aa085;
+      }
+
+      .tts-speed-display {
+        font-size: 11px;
+        font-weight: bold;
+        color: #333;
+        min-width: 35px;
+        text-align: center;
+        padding: 0 4px;
+      }
+
       .tts-icon {
         font-size: 14px;
       }
@@ -226,6 +281,15 @@ class FloatingControlBar {
           }
         });
       }
+    });
+
+    // Speed control buttons
+    this.controlBar.querySelector('#tts-speed-down-btn').addEventListener('click', () => {
+      this.changeSpeed(-0.1);
+    });
+
+    this.controlBar.querySelector('#tts-speed-up-btn').addEventListener('click', () => {
+      this.changeSpeed(0.1);
     });
 
     // Drag functionality
@@ -339,6 +403,8 @@ class FloatingControlBar {
     const toggleBtn = this.controlBar.querySelector('#tts-toggle-btn');
     const toggleIcon = this.controlBar.querySelector('#tts-toggle-icon');
     const toggleText = this.controlBar.querySelector('#tts-toggle-text');
+    const speedDownBtn = this.controlBar.querySelector('#tts-speed-down-btn');
+    const speedUpBtn = this.controlBar.querySelector('#tts-speed-up-btn');
 
     if (isSpeaking) {
       // Currently speaking - show pause button
@@ -347,6 +413,8 @@ class FloatingControlBar {
       toggleBtn.classList.remove('resume-state');
       toggleIcon.textContent = '⏸';
       toggleText.textContent = 'Pause';
+      speedDownBtn.disabled = false;
+      speedUpBtn.disabled = false;
     } else if (isPaused) {
       // Currently paused - show resume button
       stopBtn.disabled = false;
@@ -354,6 +422,8 @@ class FloatingControlBar {
       toggleBtn.classList.add('resume-state');
       toggleIcon.textContent = '▶';
       toggleText.textContent = 'Resume';
+      speedDownBtn.disabled = false;
+      speedUpBtn.disabled = false;
     } else {
       // Not speaking or paused - disable toggle button
       stopBtn.disabled = true;
@@ -361,7 +431,54 @@ class FloatingControlBar {
       toggleBtn.classList.remove('resume-state');
       toggleIcon.textContent = '⏸';
       toggleText.textContent = 'Pause';
+      speedDownBtn.disabled = true;
+      speedUpBtn.disabled = true;
     }
+  }
+
+  changeSpeed(delta) {
+    // Get current speed from storage
+    chrome.storage.sync.get(['speechRate'], (result) => {
+      const currentRate = result.speechRate ? parseFloat(result.speechRate) : 1.0;
+      let newRate = currentRate + delta;
+      
+      // Clamp speed between 0.1 and 3.0
+      newRate = Math.max(0.1, Math.min(3.0, newRate));
+      
+      // Round to 1 decimal place
+      newRate = Math.round(newRate * 10) / 10;
+      
+      // Update storage
+      chrome.storage.sync.set({ speechRate: newRate.toString() }, () => {
+        // Update display
+        this.updateSpeedDisplay(newRate);
+        
+        // If currently speaking, send message to background to apply new speed
+        chrome.runtime.sendMessage({ 
+          type: 'updateSpeed', 
+          rate: newRate 
+        }, (response) => {
+          if (response && response.status === 'error') {
+            console.error('Speed update error:', response.error);
+          }
+        });
+      });
+    });
+  }
+
+  updateSpeedDisplay(rate) {
+    const speedDisplay = this.controlBar.querySelector('#tts-speed-display');
+    if (speedDisplay) {
+      speedDisplay.textContent = rate.toFixed(1) + 'x';
+    }
+  }
+
+  initializeSpeedDisplay() {
+    // Get current speed from storage and update display
+    chrome.storage.sync.get(['speechRate'], (result) => {
+      const currentRate = result.speechRate ? parseFloat(result.speechRate) : 1.0;
+      this.updateSpeedDisplay(currentRate);
+    });
   }
 }
 
@@ -381,6 +498,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.isSpeaking !== undefined || message.isPaused !== undefined) {
         floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
       }
+      // Initialize speed display
+      floatingControlBar.initializeSpeedDisplay();
       sendResponse({ status: 'success' });
       break;
     case 'hideControlBar':

@@ -186,6 +186,9 @@ class MessageHandler {
         case 'getSelectedText':
           await this.handleGetSelectedText(sendResponse);
           break;
+        case 'updateSpeed':
+          await this.handleUpdateSpeed(message, sendResponse);
+          break;
         default:
           console.log('Unknown message type:', message.type);
           sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -289,6 +292,36 @@ class MessageHandler {
       sendResponse({ status: 'success', selectedText: selectedText });
     } catch (error) {
       console.error('Error getting selected text:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
+
+  // Handle update speed message
+  async handleUpdateSpeed(message, sendResponse) {
+    try {
+      if (!message.rate || isNaN(message.rate)) {
+        sendResponse({ status: 'error', error: 'Invalid rate provided' });
+        return;
+      }
+
+      const rate = parseFloat(message.rate);
+      
+      // Validate rate bounds
+      if (rate < 0.1 || rate > 3.0) {
+        sendResponse({ status: 'error', error: 'Rate must be between 0.1 and 3.0' });
+        return;
+      }
+
+      // If TTS is currently speaking, we need to restart it with the new rate
+      if (this.ttsService.isSpeaking || this.ttsService.isPaused) {
+        // For now, just acknowledge the speed change
+        // In a full implementation, we might need to restart current speech with new rate
+        sendResponse({ status: 'success', message: 'Speed updated for future speech' });
+      } else {
+        sendResponse({ status: 'success', message: 'Speed updated' });
+      }
+    } catch (error) {
+      console.error('Error updating speed:', error);
       sendResponse({ status: 'error', error: error.message });
     }
   }
