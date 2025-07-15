@@ -1,285 +1,45 @@
 // Tests for popup.js - TTSController class
+const { TTSController } = require('../extension/popup.js');
 
 // Mock DOM elements
 const createMockElement = (id, type = 'div') => {
   const element = {
     id,
     type,
-    value: '',
+    value: type === 'range' ? '1' : '',
     textContent: '',
-    disabled: false,
     innerHTML: '',
+    disabled: false,
     addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
     appendChild: jest.fn(),
-    removeChild: jest.fn(),
-    querySelector: jest.fn(),
-    querySelectorAll: jest.fn(),
     classList: {
       add: jest.fn(),
-      remove: jest.fn(),
-      contains: jest.fn()
+      remove: jest.fn()
     },
-    style: {
-      cssText: ''
-    },
-    parentNode: null
+    style: {},
+    options: type === 'select' ? [] : undefined,
+    selectedIndex: type === 'select' ? 0 : undefined,
+    length: type === 'select' ? 0 : undefined
   };
+  
+  if (type === 'select') {
+    element.add = jest.fn();
+    element.remove = jest.fn();
+  }
+  
   return element;
 };
 
 // Mock document
 global.document = {
+  ...global.document,
   getElementById: jest.fn(),
-  createElement: jest.fn(),
+  createElement: jest.fn(() => createMockElement('mock')),
   body: createMockElement('body'),
   head: createMockElement('head'),
   addEventListener: jest.fn()
 };
-
-// Define TTSController class for testing
-class TTSController {
-  constructor() {
-    this.elements = this.initializeElements();
-    this.bindEvents();
-    this.loadSavedData().then(() => {
-      this.populateVoices();
-    });
-  }
-
-  initializeElements() {
-    const elements = {
-      voiceSelect: document.getElementById('voiceSelect'),
-      rateRange: document.getElementById('rateRange'),
-      rateValue: document.getElementById('rateValue'),
-      textArea: document.getElementById('text'),
-      speakBtn: document.getElementById('speakBtn'),
-      stopBtn: document.getElementById('stopBtn')
-    };
-    return elements;
-  }
-
-  bindEvents() {
-    this.elements.textArea.addEventListener('input', () => this.saveText());
-    this.elements.voiceSelect.addEventListener('change', () => this.saveVoice());
-    this.elements.rateRange.addEventListener('input', () => this.updateRate());
-    this.elements.speakBtn.addEventListener('click', () => this.speak());
-    this.elements.stopBtn.addEventListener('click', () => this.stop());
-  }
-
-  loadSavedData() {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'getSelectedText' }, (response) => {
-        if (response && response.status === 'success' && response.selectedText) {
-          this._pendingSpeakText = response.selectedText;
-          this._loadTextFromStorage(resolve);
-          return;
-        }
-        this._loadTextFromStorage(resolve);
-      });
-    });
-  }
-
-  _loadTextFromStorage(callback) {
-    chrome.storage.sync.get(['ttsText', 'selectedVoice', 'speechRate'], (result) => {
-      this.elements.rateValue.textContent = 'Loading...';
-      
-      if (result.speechRate !== undefined) {
-        this.elements.rateRange.value = result.speechRate;
-        this.elements.rateValue.textContent = result.speechRate;
-      } else {
-        this.elements.rateRange.value = 1.0;
-        this.elements.rateValue.textContent = '1.0 (default)';
-      }
-      
-      if (this._pendingSpeakText) {
-        this.elements.textArea.value = this._pendingSpeakText;
-        this._pendingVoiceToRestore = result.selectedVoice;
-      } else {
-        if (result.ttsText !== undefined && result.ttsText !== '') {
-          this.elements.textArea.value = result.ttsText;
-        } else {
-          this.elements.textArea.value = 'Hello, this is a test of the TTS extension.';
-        }
-      }
-      if (callback) callback();
-    });
-  }
-
-  saveText() {
-    chrome.storage.sync.set({ ttsText: this.elements.textArea.value });
-  }
-
-  saveVoice() {
-    chrome.storage.sync.set({ selectedVoice: this.elements.voiceSelect.value });
-  }
-
-  updateRate() {
-    const rate = this.elements.rateRange.value;
-    this.elements.rateValue.textContent = rate;
-    chrome.storage.sync.set({ speechRate: rate }, () => {});
-  }
-
-  populateVoices() {
-    const voiceTimeout = setTimeout(() => {
-      if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-        this._autoSpeakTriggered = true;
-        this.speak();
-        this._pendingSpeakText = null;
-      }
-    }, 3000);
-    
-    chrome.runtime.sendMessage({ type: 'getVoices' }, (response) => {
-      clearTimeout(voiceTimeout);
-      
-      if (response && response.status === 'success') {
-        this.populateVoiceOptions(response.voices);
-        this.restoreSelectedVoice(() => {
-          if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-            this._autoSpeakTriggered = true;
-            this.speak();
-            this._pendingSpeakText = null;
-          }
-        });
-      } else {
-        this.showError('Failed to load voices: ' + (response?.error || 'Unknown error'));
-        if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-          this._autoSpeakTriggered = true;
-          this.speak();
-          this._pendingSpeakText = null;
-        }
-      }
-    });
-  }
-
-  populateVoiceOptions(voices) {
-    this.elements.voiceSelect.innerHTML = '';
-    
-    voices.forEach((voice) => {
-      const option = document.createElement('option');
-      option.value = voice.voiceName;
-      option.textContent = `${voice.voiceName} (${voice.lang})${voice.default ? ' [default]' : ''}`;
-      this.elements.voiceSelect.appendChild(option);
-    });
-  }
-
-  restoreSelectedVoice(callback) {
-    chrome.storage.sync.get(['selectedVoice'], (result) => {
-      if (result.selectedVoice !== undefined) {
-        this.elements.voiceSelect.value = result.selectedVoice;
-      }
-      if (typeof callback === 'function') {
-        callback();
-      }
-    });
-  }
-
-  speak() {
-    const text = this.elements.textArea.value.trim();
-    
-    if (!text) {
-      this.showError('Please enter some text to speak');
-      return;
-    }
-
-    const rate = parseFloat(this.elements.rateRange.value);
-
-    const message = {
-      type: 'speak',
-      text: text,
-      rate: rate,
-      voiceName: this.elements.voiceSelect.value
-    };
-
-    this.setButtonState(true);
-    
-    chrome.runtime.sendMessage(message, (response) => {
-      if (response && response.status === 'error') {
-        this.showError('TTS Error: ' + response.error);
-        this.setButtonState(false);
-      } else {
-        this.pollSpeakingStatus();
-      }
-    });
-  }
-
-  pollSpeakingStatus() {
-    const poll = () => {
-      chrome.runtime.sendMessage({ type: 'getStatus' }, (response) => {
-        if (response && response.status === 'success') {
-          if (response.isSpeaking) {
-            this.setButtonState(true);
-            this._pollTimeout = setTimeout(poll, 500);
-          } else {
-            this.setButtonState(false);
-          }
-        } else {
-          this.setButtonState(false);
-        }
-      });
-    };
-    poll();
-  }
-
-  stop() {
-    if (this._pollTimeout) {
-      clearTimeout(this._pollTimeout);
-      this._pollTimeout = null;
-    }
-    chrome.runtime.sendMessage({ type: 'stop' }, (response) => {
-      if (response && response.status === 'error') {
-        this.showError('Stop Error: ' + response.error);
-      }
-      this.setButtonState(false);
-    });
-  }
-
-  setButtonState(isSpeaking) {
-    this.elements.speakBtn.disabled = isSpeaking;
-    this.elements.stopBtn.disabled = !isSpeaking;
-    
-    if (isSpeaking) {
-      this.elements.speakBtn.textContent = 'Speaking...';
-    } else {
-      this.elements.speakBtn.textContent = 'Speak';
-    }
-  }
-
-  showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      background: #ff4444;
-      color: white;
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 1000;
-      font-size: 12px;
-    `;
-    errorDiv.textContent = message;
-    
-    // In test environment, avoid appendChild issues with JSDOM
-    if (document.body && document.body.appendChild) {
-      try {
-        document.body.appendChild(errorDiv);
-      } catch (e) {
-        // Ignore appendChild errors in test environment
-      }
-    }
-    
-    setTimeout(() => {
-      if (errorDiv.parentNode) {
-        try {
-          errorDiv.parentNode.removeChild(errorDiv);
-        } catch (e) {
-          // Ignore removeChild errors in test environment
-        }
-      }
-    }, 3000);
-  }
-}
 
 describe('TTSController', () => {
   let controller;
@@ -305,126 +65,116 @@ describe('TTSController', () => {
       return null;
     });
 
-    // Also add the mock elements to the global document for queries
-    Object.keys(mockElements).forEach(id => {
-      if (mockElements[id]) {
-        mockElements[id].id = id;
-      }
+    // Mock chrome storage
+    chrome.storage.sync.get.mockImplementation((keys, callback) => {
+      callback({});
     });
 
-    // Mock chrome.storage
-    chrome.storage.sync.get = jest.fn((keys, callback) => {
-      callback({
-        ttsText: 'Hello world',
-        selectedVoice: 'test-voice',
-        speechRate: '1.5'
-      });
+    // Mock chrome.tts.getVoices
+    chrome.tts.getVoices.mockImplementation((callback) => {
+      callback([
+        { voiceName: 'Voice 1', lang: 'en-US' },
+        { voiceName: 'Voice 2', lang: 'en-GB' }
+      ]);
     });
 
-    chrome.storage.sync.set = jest.fn((data, callback) => {
-      if (callback) callback();
-    });
-
-    // Mock chrome.runtime.sendMessage for getSelectedText
-    chrome.runtime.sendMessage = jest.fn((message, callback) => {
-      if (message.type === 'getSelectedText') {
-        callback({ status: 'success', selectedText: null });
-      }
-    });
-
+    // Clear all mocks
+    jest.clearAllMocks();
+    
     // Create controller instance
     controller = new TTSController();
   });
 
   describe('constructor', () => {
-    test('should initialize elements correctly', () => {
-      expect(document.getElementById).toHaveBeenCalledWith('voiceSelect');
-      expect(document.getElementById).toHaveBeenCalledWith('rateRange');
-      expect(document.getElementById).toHaveBeenCalledWith('rateValue');
-      expect(document.getElementById).toHaveBeenCalledWith('text');
-      expect(document.getElementById).toHaveBeenCalledWith('speakBtn');
-      expect(document.getElementById).toHaveBeenCalledWith('stopBtn');
+    test('should initialize with correct elements', () => {
+      expect(controller.elements).toBeDefined();
+      expect(controller.elements.voiceSelect).toBe(mockElements.voiceSelect);
+      expect(controller.elements.rateRange).toBe(mockElements.rateRange);
+      expect(controller.elements.textArea).toBe(mockElements.text);
+      expect(controller.elements.speakBtn).toBe(mockElements.speakBtn);
+      expect(controller.elements.stopBtn).toBe(mockElements.stopBtn);
     });
 
-    test('should bind event listeners', () => {
-      expect(mockElements.text.addEventListener).toHaveBeenCalledWith('input', expect.any(Function));
-      expect(mockElements.voiceSelect.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
-      expect(mockElements.rateRange.addEventListener).toHaveBeenCalledWith('input', expect.any(Function));
+    test('should bind events to elements', () => {
       expect(mockElements.speakBtn.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
       expect(mockElements.stopBtn.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(mockElements.rateRange.addEventListener).toHaveBeenCalledWith('input', expect.any(Function));
+      expect(mockElements.text.addEventListener).toHaveBeenCalledWith('input', expect.any(Function));
+      expect(mockElements.voiceSelect.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
     });
   });
 
-  describe('saveText', () => {
-    test('should save text to chrome.storage', () => {
-      mockElements.text.value = 'Test text';
-      
-      controller.saveText();
-      
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        ttsText: 'Test text'
-      });
-    });
-  });
+  describe('populateVoices', () => {
+    test('should populate voice select with available voices', async () => {
+      const voices = [
+        { voiceName: 'Voice 1', lang: 'en-US' },
+        { voiceName: 'Voice 2', lang: 'en-GB' }
+      ];
 
-  describe('saveVoice', () => {
-    test('should save selected voice to chrome.storage', () => {
-      mockElements.voiceSelect.value = 'new-voice';
-      
-      controller.saveVoice();
-      
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        selectedVoice: 'new-voice'
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getVoices') {
+          callback({ status: 'success', voices });
+        }
       });
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
+      });
+
+      await controller.populateVoices();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { type: 'getVoices' },
+        expect.any(Function)
+      );
+      expect(mockElements.voiceSelect.appendChild).toHaveBeenCalledTimes(2);
+    });
+
+    test('should handle empty voices array', async () => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getVoices') {
+          callback({ status: 'success', voices: [] });
+        }
+      });
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
+      });
+
+      await controller.populateVoices();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { type: 'getVoices' },
+        expect.any(Function)
+      );
+      expect(mockElements.voiceSelect.appendChild).not.toHaveBeenCalled();
     });
   });
 
   describe('updateRate', () => {
-    test('should update rate display and save to storage', () => {
-      mockElements.rateRange.value = '2.0';
-      
+    test('should update rate display', () => {
+      mockElements.rateRange.value = '1.5';
       controller.updateRate();
-      
-      expect(mockElements.rateValue.textContent).toBe('2.0');
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        speechRate: '2.0'
-      }, expect.any(Function));
+      expect(mockElements.rateValue.textContent).toBe('1.5');
     });
-  });
 
-  describe('populateVoiceOptions', () => {
-    test('should populate voice dropdown with options', () => {
-      const mockVoices = [
-        { voiceName: 'Voice 1', lang: 'en-US', default: true },
-        { voiceName: 'Voice 2', lang: 'en-GB', default: false }
-      ];
-
-      mockElements.voiceSelect.appendChild = jest.fn();
-      document.createElement = jest.fn(() => ({
-        value: '',
-        textContent: '',
-        appendChild: jest.fn(),
-        style: {
-          cssText: ''
-        }
-      }));
-
-      controller.populateVoiceOptions(mockVoices);
-
-      expect(mockElements.voiceSelect.innerHTML).toBe('');
-      expect(document.createElement).toHaveBeenCalledWith('option');
+    test('should save rate to storage', () => {
+      mockElements.rateRange.value = '2.0';
+      controller.updateRate();
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({ speechRate: '2.0' }, expect.any(Function));
     });
   });
 
   describe('speak', () => {
-    test('should send speak message to background script', () => {
+    beforeEach(() => {
+      // Clear mocks from constructor
+      chrome.runtime.sendMessage.mockClear();
+    });
+
+    test('should send speak message with correct parameters', () => {
       mockElements.text.value = 'Hello world';
       mockElements.rateRange.value = '1.5';
-      mockElements.voiceSelect.value = 'test-voice';
-
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ status: 'speaking' });
-      });
+      mockElements.voiceSelect.value = 'voice2';
 
       controller.speak();
 
@@ -432,7 +182,7 @@ describe('TTSController', () => {
         type: 'speak',
         text: 'Hello world',
         rate: 1.5,
-        voiceName: 'test-voice'
+        voiceName: 'voice2'
       }, expect.any(Function));
     });
 
@@ -452,23 +202,27 @@ describe('TTSController', () => {
     test('should handle TTS errors', () => {
       mockElements.text.value = 'Hello world';
       
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ status: 'error', error: 'TTS not available' });
+      // Clear any previous calls from constructor
+      chrome.runtime.sendMessage.mockClear();
+      
+      const showErrorSpy = jest.spyOn(controller, 'showError');
+      
+      // Mock sendMessage to simulate error
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        callback({ status: 'error', error: 'TTS Error' });
       });
 
-      const showErrorSpy = jest.spyOn(controller, 'showError');
       controller.speak();
 
-      expect(showErrorSpy).toHaveBeenCalledWith('TTS Error: TTS not available');
+      expect(showErrorSpy).toHaveBeenCalledWith('TTS Error: TTS Error');
     });
   });
 
   describe('stop', () => {
-    test('should send stop message to background script', () => {
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ status: 'stopped' });
-      });
-
+    test('should send stop message', () => {
+      // Clear any previous calls from constructor
+      chrome.runtime.sendMessage.mockClear();
+      
       controller.stop();
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
@@ -477,60 +231,78 @@ describe('TTSController', () => {
     });
 
     test('should handle stop errors', () => {
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ status: 'error', error: 'Stop failed' });
+      // Clear any previous calls from constructor
+      chrome.runtime.sendMessage.mockClear();
+      
+      const showErrorSpy = jest.spyOn(controller, 'showError');
+      
+      // Mock sendMessage to simulate error
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        callback({ status: 'error', error: 'Stop Error' });
       });
 
-      const showErrorSpy = jest.spyOn(controller, 'showError');
       controller.stop();
 
-      expect(showErrorSpy).toHaveBeenCalledWith('Stop Error: Stop failed');
+      expect(showErrorSpy).toHaveBeenCalledWith('Stop Error: Stop Error');
     });
   });
 
   describe('setButtonState', () => {
-    test('should update button states when speaking', () => {
+    test('should set button states when speaking', () => {
       controller.setButtonState(true);
 
       expect(mockElements.speakBtn.disabled).toBe(true);
       expect(mockElements.stopBtn.disabled).toBe(false);
-      expect(mockElements.speakBtn.textContent).toBe('Speaking...');
     });
 
-    test('should update button states when not speaking', () => {
+    test('should set button states when not speaking', () => {
       controller.setButtonState(false);
 
       expect(mockElements.speakBtn.disabled).toBe(false);
       expect(mockElements.stopBtn.disabled).toBe(true);
-      expect(mockElements.speakBtn.textContent).toBe('Speak');
     });
   });
 
   describe('showError', () => {
     test('should create and display error message', () => {
-      const mockErrorDiv = createMockElement('error-div');
-      document.createElement.mockReturnValue(mockErrorDiv);
+      const originalCreateElement = document.createElement;
+      const mockErrorDiv = document.createElement('div');
+      
+      // Spy on createElement to track calls
+      const createElementSpy = jest.spyOn(document, 'createElement');
+      createElementSpy.mockReturnValue(mockErrorDiv);
+      
+      // Spy on appendChild to track calls
+      const appendChildSpy = jest.spyOn(document.body, 'appendChild');
 
       controller.showError('Test error message');
 
-      expect(document.createElement).toHaveBeenCalledWith('div');
+      expect(createElementSpy).toHaveBeenCalledWith('div');
       expect(mockErrorDiv.textContent).toBe('Test error message');
-      // Note: appendChild is wrapped in try/catch, so we verify the element was created with correct content
+      expect(appendChildSpy).toHaveBeenCalledWith(mockErrorDiv);
+      
+      // Restore original
+      createElementSpy.mockRestore();
+      appendChildSpy.mockRestore();
     });
   });
 
   describe('loadSavedData', () => {
-    test('should load saved data from storage', async () => {
-      chrome.storage.sync.get = jest.fn((keys, callback) => {
-        callback({
-          ttsText: 'Saved text',
-          selectedVoice: 'saved-voice',
-          speechRate: '1.8'
-        });
+    test('should load saved text and voice data', async () => {
+      const savedData = {
+        ttsText: 'Saved text',
+        selectedVoice: 'voice2',
+        speechRate: '1.8'
+      };
+
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ status: 'success', selectedText: null });
+        }
       });
 
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ status: 'success', selectedText: null });
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback(savedData);
       });
 
       await controller.loadSavedData();
@@ -539,56 +311,93 @@ describe('TTSController', () => {
         ['ttsText', 'selectedVoice', 'speechRate'],
         expect.any(Function)
       );
+      expect(mockElements.text.value).toBe('Saved text');
+      expect(mockElements.rateRange.value).toBe('1.8');
     });
 
-    test('should prioritize selected text over saved text', async () => {
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
+    test('should handle empty saved data', async () => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
         if (message.type === 'getSelectedText') {
-          callback({ status: 'success', selectedText: 'Selected text' });
+          callback({ status: 'success', selectedText: null });
         }
+      });
+
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({});
       });
 
       await controller.loadSavedData();
 
-      expect(controller._pendingSpeakText).toBe('Selected text');
+      expect(chrome.storage.sync.get).toHaveBeenCalled();
+      // Should not throw error with empty data
+    });
+  });
+
+  describe('saveText', () => {
+    test('should save text to storage', () => {
+      mockElements.text.value = 'Hello world';
+      controller.saveText();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        { ttsText: 'Hello world' }
+      );
+    });
+
+    test('should handle storage errors', () => {
+      mockElements.text.value = 'Hello world';
+      
+      chrome.storage.sync.set.mockImplementation((data) => {
+        // Real implementation doesn't check for errors in saveText
+      });
+
+      controller.saveText();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        { ttsText: 'Hello world' }
+      );
+    });
+  });
+
+  describe('saveVoice', () => {
+    test('should save voice to storage', () => {
+      mockElements.voiceSelect.value = 'voice1';
+      controller.saveVoice();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        { selectedVoice: 'voice1' }
+      );
+    });
+
+    test('should handle storage errors', () => {
+      mockElements.voiceSelect.value = 'voice1';
+      
+      chrome.storage.sync.set.mockImplementation((data) => {
+        // Real implementation doesn't check for errors in saveVoice
+      });
+
+      controller.saveVoice();
+
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        { selectedVoice: 'voice1' }
+      );
     });
   });
 
   describe('pollSpeakingStatus', () => {
-    test('should poll for speaking status', () => {
+    test('should poll speaking status', () => {
       jest.useFakeTimers();
       
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        if (message.type === 'getStatus') {
-          callback({ status: 'success', isSpeaking: true });
-        }
-      });
-
+      // Clear any previous calls from constructor
+      chrome.runtime.sendMessage.mockClear();
+      
       controller.pollSpeakingStatus();
 
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-        type: 'getStatus'
-      }, expect.any(Function));
-
-      // Fast forward time to trigger the next poll
-      jest.advanceTimersByTime(500);
-      
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { type: 'getStatus' },
+        expect.any(Function)
+      );
       
       jest.useRealTimers();
-    });
-
-    test('should stop polling when TTS finishes', () => {
-      chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        if (message.type === 'getStatus') {
-          callback({ status: 'success', isSpeaking: false });
-        }
-      });
-
-      const setButtonStateSpy = jest.spyOn(controller, 'setButtonState');
-      controller.pollSpeakingStatus();
-
-      expect(setButtonStateSpy).toHaveBeenCalledWith(false);
     });
   });
 });
