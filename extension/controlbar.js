@@ -387,4 +387,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-console.log('TTS Content script loaded'); 
+console.log('TTS Content script loaded');
+
+// Export class for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { FloatingControlBar };
+} 
