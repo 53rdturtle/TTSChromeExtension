@@ -62,6 +62,13 @@ class TTSService {
   // Speak the given text with specified options
   speak(text, options = {}) {
     return new Promise((resolve, reject) => {
+      // Stop any existing TTS before starting new speech
+      chrome.tts.stop();
+      
+      // Reset TTS service state
+      this.isSpeaking = false;
+      this.isPaused = false;
+      
       const ttsOptions = {
         rate: options.rate || 1.0,
         pitch: options.pitch || 1.0,
@@ -336,6 +343,13 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
         if (prefs.selectedVoice) {
           options.voiceName = prefs.selectedVoice;
         }
+        
+        // Stop any existing TTS before starting new speech
+        chrome.tts.stop();
+        
+        // Reset TTS service state
+        ttsService.isSpeaking = false;
+        ttsService.isPaused = false;
         
         // Call TTS API directly
         chrome.tts.speak(selectedText, options, () => {
