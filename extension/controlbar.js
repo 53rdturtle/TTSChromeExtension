@@ -28,15 +28,9 @@ class FloatingControlBar {
             </button>
           </div>
           <div class="tts-control-item">
-            <button class="tts-btn tts-pause-btn" id="tts-pause-btn">
-              <span class="tts-icon">⏸</span>
-              Pause
-            </button>
-          </div>
-          <div class="tts-control-item">
-            <button class="tts-btn tts-resume-btn" id="tts-resume-btn">
-              <span class="tts-icon">▶</span>
-              Resume
+            <button class="tts-btn tts-toggle-btn" id="tts-toggle-btn">
+              <span class="tts-icon" id="tts-toggle-icon">⏸</span>
+              <span class="tts-toggle-text" id="tts-toggle-text">Pause</span>
             </button>
           </div>
         </div>
@@ -172,20 +166,21 @@ class FloatingControlBar {
         background: #c82333;
       }
 
-      .tts-pause-btn {
+      .tts-toggle-btn {
         background: #ffc107;
         color: #212529;
       }
 
-      .tts-pause-btn:hover {
+      .tts-toggle-btn:hover {
         background: #e0a800;
       }
 
-      .tts-resume-btn {
+      .tts-toggle-btn.resume-state {
         background: #28a745;
+        color: white;
       }
 
-      .tts-resume-btn:hover {
+      .tts-toggle-btn.resume-state:hover {
         background: #218838;
       }
 
@@ -211,22 +206,26 @@ class FloatingControlBar {
       });
     });
 
-    // Pause button
-    this.controlBar.querySelector('#tts-pause-btn').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'pause' }, (response) => {
-        if (response && response.status === 'paused') {
-          this.updateStatus(false, true); // paused state
-        }
-      });
-    });
-
-    // Resume button
-    this.controlBar.querySelector('#tts-resume-btn').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'resume' }, (response) => {
-        if (response && response.status === 'resumed') {
-          this.updateStatus(true, false); // speaking state
-        }
-      });
+    // Toggle button (pause/resume)
+    this.controlBar.querySelector('#tts-toggle-btn').addEventListener('click', () => {
+      const toggleBtn = this.controlBar.querySelector('#tts-toggle-btn');
+      const isResumeState = toggleBtn.classList.contains('resume-state');
+      
+      if (isResumeState) {
+        // Currently showing resume, so resume playback
+        chrome.runtime.sendMessage({ type: 'resume' }, (response) => {
+          if (response && response.status === 'resumed') {
+            this.updateStatus(true, false); // speaking state
+          }
+        });
+      } else {
+        // Currently showing pause, so pause playback
+        chrome.runtime.sendMessage({ type: 'pause' }, (response) => {
+          if (response && response.status === 'paused') {
+            this.updateStatus(false, true); // paused state
+          }
+        });
+      }
     });
 
     // Drag functionality
@@ -337,21 +336,31 @@ class FloatingControlBar {
 
   updateStatus(isSpeaking, isPaused = false) {
     const stopBtn = this.controlBar.querySelector('#tts-stop-btn');
-    const pauseBtn = this.controlBar.querySelector('#tts-pause-btn');
-    const resumeBtn = this.controlBar.querySelector('#tts-resume-btn');
+    const toggleBtn = this.controlBar.querySelector('#tts-toggle-btn');
+    const toggleIcon = this.controlBar.querySelector('#tts-toggle-icon');
+    const toggleText = this.controlBar.querySelector('#tts-toggle-text');
 
     if (isSpeaking) {
+      // Currently speaking - show pause button
       stopBtn.disabled = false;
-      pauseBtn.disabled = false;
-      resumeBtn.disabled = true;
+      toggleBtn.disabled = false;
+      toggleBtn.classList.remove('resume-state');
+      toggleIcon.textContent = '⏸';
+      toggleText.textContent = 'Pause';
     } else if (isPaused) {
+      // Currently paused - show resume button
       stopBtn.disabled = false;
-      pauseBtn.disabled = true;
-      resumeBtn.disabled = false;
+      toggleBtn.disabled = false;
+      toggleBtn.classList.add('resume-state');
+      toggleIcon.textContent = '▶';
+      toggleText.textContent = 'Resume';
     } else {
+      // Not speaking or paused - disable toggle button
       stopBtn.disabled = true;
-      pauseBtn.disabled = true;
-      resumeBtn.disabled = true;
+      toggleBtn.disabled = true;
+      toggleBtn.classList.remove('resume-state');
+      toggleIcon.textContent = '⏸';
+      toggleText.textContent = 'Pause';
     }
   }
 }

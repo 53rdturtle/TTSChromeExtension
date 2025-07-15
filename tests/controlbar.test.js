@@ -67,8 +67,9 @@ describe('FloatingControlBar', () => {
     mockButtons = {
       'tts-close-btn': createMockElement('tts-close-btn', 'button'),
       'tts-stop-btn': createMockElement('tts-stop-btn', 'button'),
-      'tts-pause-btn': createMockElement('tts-pause-btn', 'button'),
-      'tts-resume-btn': createMockElement('tts-resume-btn', 'button'),
+      'tts-toggle-btn': createMockElement('tts-toggle-btn', 'button'),
+      'tts-toggle-icon': createMockElement('tts-toggle-icon', 'span'),
+      'tts-toggle-text': createMockElement('tts-toggle-text', 'span'),
       'tts-drag-handle': createMockElement('tts-drag-handle', 'div')
     };
     
@@ -112,7 +113,6 @@ describe('FloatingControlBar', () => {
       expect(mockControlBarElement.innerHTML).toContain('×'); // Close button is × symbol
       expect(mockControlBarElement.innerHTML).toContain('Stop');
       expect(mockControlBarElement.innerHTML).toContain('Pause');
-      expect(mockControlBarElement.innerHTML).toContain('Resume');
     });
 
     test('should add styles to document head', () => {
@@ -179,36 +179,43 @@ describe('FloatingControlBar', () => {
   });
 
   describe('updateStatus', () => {
-    let stopBtn, pauseBtn, resumeBtn;
+    let stopBtn, toggleBtn, toggleIcon, toggleText;
 
     beforeEach(() => {
       stopBtn = mockButtons['tts-stop-btn'];
-      pauseBtn = mockButtons['tts-pause-btn'];
-      resumeBtn = mockButtons['tts-resume-btn'];
+      toggleBtn = mockButtons['tts-toggle-btn'];
+      toggleIcon = mockButtons['tts-toggle-icon'];
+      toggleText = mockButtons['tts-toggle-text'];
     });
 
-    test('should enable buttons when speaking', () => {
+    test('should show pause button when speaking', () => {
       controlBar.updateStatus(true, false);
 
       expect(stopBtn.disabled).toBe(false);
-      expect(pauseBtn.disabled).toBe(false);
-      expect(resumeBtn.disabled).toBe(true);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
     });
 
-    test('should enable resume button when paused', () => {
+    test('should show resume button when paused', () => {
       controlBar.updateStatus(false, true);
 
       expect(stopBtn.disabled).toBe(false);
-      expect(pauseBtn.disabled).toBe(true);
-      expect(resumeBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleBtn.classList.add).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('▶');
+      expect(toggleText.textContent).toBe('Resume');
     });
 
     test('should disable all buttons when not speaking', () => {
       controlBar.updateStatus(false, false);
 
       expect(stopBtn.disabled).toBe(true);
-      expect(pauseBtn.disabled).toBe(true);
-      expect(resumeBtn.disabled).toBe(true);
+      expect(toggleBtn.disabled).toBe(true);
+      expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
     });
   });
 
