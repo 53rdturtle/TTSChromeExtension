@@ -377,4 +377,9 @@ async function hideFloatingControlBar() {
   }
 }
 
-console.log('TTS Chrome Extension background script loaded'); 
+console.log('TTS Chrome Extension background script loaded');
+
+// Export classes for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { TTSService, MessageHandler };
+} 
