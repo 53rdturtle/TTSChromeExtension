@@ -219,6 +219,124 @@ describe('FloatingControlBar', () => {
     });
   });
 
+  describe('Button clickability regression tests', () => {
+    let stopBtn, toggleBtn, toggleIcon, toggleText;
+
+    beforeEach(() => {
+      stopBtn = mockButtons['tts-stop-btn'];
+      toggleBtn = mockButtons['tts-toggle-btn'];
+      toggleIcon = mockButtons['tts-toggle-icon'];
+      toggleText = mockButtons['tts-toggle-text'];
+    });
+
+    test('should enable buttons when control bar is shown with speaking state', () => {
+      // Simulate showing control bar with speaking state (the bug scenario)
+      controlBar.show();
+      controlBar.updateStatus(true, false); // isSpeaking = true, isPaused = false
+
+      // Verify buttons are enabled and clickable
+      expect(stopBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
+    });
+
+    test('should enable buttons when control bar is shown with paused state', () => {
+      // Simulate showing control bar with paused state
+      controlBar.show();
+      controlBar.updateStatus(false, true); // isSpeaking = false, isPaused = true
+
+      // Verify buttons are enabled and clickable
+      expect(stopBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleBtn.classList.add).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('▶');
+      expect(toggleText.textContent).toBe('Resume');
+    });
+
+    test('should handle showControlBar message with correct initial state', () => {
+      // Simulate the message handler scenario
+      const message = {
+        type: 'showControlBar',
+        isSpeaking: true,
+        isPaused: false
+      };
+
+      // Simulate message handling
+      controlBar.show();
+      controlBar.updateStatus(message.isSpeaking, message.isPaused);
+
+      // Verify buttons are properly enabled
+      expect(stopBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
+    });
+
+    test('should handle showControlBar message with paused state', () => {
+      // Simulate the message handler scenario with paused state
+      const message = {
+        type: 'showControlBar',
+        isSpeaking: false,
+        isPaused: true
+      };
+
+      // Simulate message handling
+      controlBar.show();
+      controlBar.updateStatus(message.isSpeaking, message.isPaused);
+
+      // Verify buttons are properly enabled for resume
+      expect(stopBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleBtn.classList.add).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('▶');
+      expect(toggleText.textContent).toBe('Resume');
+    });
+
+    test('should prevent disabled buttons when control bar opens during active TTS', () => {
+      // This is the specific bug scenario: control bar opens while TTS is speaking
+      // but the timing caused buttons to be disabled
+      
+      // Simulate control bar opening
+      controlBar.show();
+      
+      // Simulate the correct state being set after TTS starts speaking
+      controlBar.updateStatus(true, false);
+      
+      // Verify no buttons are disabled (the bug would cause them to be disabled)
+      expect(stopBtn.disabled).toBe(false);
+      expect(toggleBtn.disabled).toBe(false);
+      
+      // Verify toggle button is in correct pause state
+      expect(toggleBtn.classList.remove).toHaveBeenCalledWith('resume-state');
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
+    });
+
+    test('should enable toggle button for pause/resume functionality', () => {
+      // Test that toggle button can switch between pause and resume states
+      
+      // Start with speaking state
+      controlBar.updateStatus(true, false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
+      
+      // Switch to paused state
+      controlBar.updateStatus(false, true);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleIcon.textContent).toBe('▶');
+      expect(toggleText.textContent).toBe('Resume');
+      
+      // Switch back to speaking state
+      controlBar.updateStatus(true, false);
+      expect(toggleBtn.disabled).toBe(false);
+      expect(toggleIcon.textContent).toBe('⏸');
+      expect(toggleText.textContent).toBe('Pause');
+    });
+  });
+
   describe('drag functionality', () => {
     beforeEach(() => {
       // Mock getBoundingClientRect for consistent test results

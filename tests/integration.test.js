@@ -377,4 +377,240 @@ describe('Integration Tests', () => {
       });
     });
   });
+
+  describe('Pause-then-speak regression test', () => {
+    test('should allow new speech after pausing previous speech', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Start initial speech
+      const initialSpeakMessage = { type: 'speak', text: 'Initial text' };
+      const initialSpeakResponse = jest.fn();
+      await messageHandler.handleMessage(initialSpeakMessage, {}, initialSpeakResponse);
+
+      expect(initialSpeakResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+
+      // Pause the speech
+      const pauseMessage = { type: 'pause' };
+      const pauseResponse = jest.fn();
+      await messageHandler.handleMessage(pauseMessage, {}, pauseResponse);
+
+      expect(pauseResponse).toHaveBeenCalledWith({ status: 'paused' });
+      expect(ttsService.isSpeaking).toBe(false);
+      expect(ttsService.isPaused).toBe(true);
+
+      // Now try to start new speech - this should work despite being paused
+      const newSpeakMessage = { type: 'speak', text: 'New text after pause' };
+      const newSpeakResponse = jest.fn();
+      await messageHandler.handleMessage(newSpeakMessage, {}, newSpeakResponse);
+
+      // Verify that new speech starts successfully
+      expect(newSpeakResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+      
+      // Verify that chrome.tts.stop was called to clear previous state
+      expect(chrome.tts.stop).toHaveBeenCalled();
+      
+      // Verify that new speech was started
+      expect(chrome.tts.speak).toHaveBeenCalledWith(
+        'New text after pause',
+        expect.objectContaining({
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0
+        }),
+        expect.any(Function)
+      );
+    });
+
+    test('should reset TTS state when starting new speech after pause', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Manually set the service to a paused state (simulating pause from control bar)
+      ttsService.isSpeaking = false;
+      ttsService.isPaused = true;
+
+      // Try to start new speech
+      const speakMessage = { type: 'speak', text: 'Text after manual pause' };
+      const speakResponse = jest.fn();
+      await messageHandler.handleMessage(speakMessage, {}, speakResponse);
+
+      // Verify that speech starts successfully despite previous paused state
+      expect(speakResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+      
+      // Verify that chrome.tts.stop was called to clear previous state
+      expect(chrome.tts.stop).toHaveBeenCalled();
+    });
+
+    test('should handle pause-resume-newspeak workflow correctly', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Start initial speech
+      const initialMessage = { type: 'speak', text: 'Initial' };
+      const initialResponse = jest.fn();
+      await messageHandler.handleMessage(initialMessage, {}, initialResponse);
+
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+
+      // Pause
+      const pauseMessage = { type: 'pause' };
+      const pauseResponse = jest.fn();
+      await messageHandler.handleMessage(pauseMessage, {}, pauseResponse);
+
+      expect(ttsService.isSpeaking).toBe(false);
+      expect(ttsService.isPaused).toBe(true);
+
+      // Resume
+      const resumeMessage = { type: 'resume' };
+      const resumeResponse = jest.fn();
+      await messageHandler.handleMessage(resumeMessage, {}, resumeResponse);
+
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+
+      // Now start completely new speech - should work
+      const newMessage = { type: 'speak', text: 'New speech' };
+      const newResponse = jest.fn();
+      await messageHandler.handleMessage(newMessage, {}, newResponse);
+
+      expect(newResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+    });
+  });
+
+  describe('Control bar button clickability regression tests', () => {
+    test('should show control bar with enabled buttons when TTS starts speaking', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        // Simulate TTS successfully starting
+        callback();
+      });
+
+      // Mock tabs.query for control bar display
+      chrome.tabs.query.mockResolvedValue([{ id: 1 }]);
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (callback) callback({ status: 'success' });
+      });
+
+      // Start TTS
+      const speakMessage = { type: 'speak', text: 'Test text' };
+      const speakResponse = jest.fn();
+      await messageHandler.handleMessage(speakMessage, {}, speakResponse);
+
+      // Verify TTS started successfully
+      expect(speakResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+
+      // Verify control bar was shown (the important part is that it's shown)
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          type: 'showControlBar'
+        })
+      );
+      
+      // Verify the state sent to control bar has correct structure
+      const showControlBarCall = chrome.tabs.sendMessage.mock.calls.find(
+        call => call[1].type === 'showControlBar'
+      );
+      expect(showControlBarCall[1]).toHaveProperty('isSpeaking');
+      expect(showControlBarCall[1]).toHaveProperty('isPaused');
+    });
+
+    test('should send correct status updates when TTS state changes', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Mock tabs.query for control bar updates
+      chrome.tabs.query.mockResolvedValue([{ id: 1 }]);
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (callback) callback({ status: 'success' });
+      });
+
+      // Start TTS
+      const speakMessage = { type: 'speak', text: 'Test text' };
+      const speakResponse = jest.fn();
+      await messageHandler.handleMessage(speakMessage, {}, speakResponse);
+
+      // Clear previous calls
+      chrome.tabs.sendMessage.mockClear();
+
+      // Pause TTS (this should trigger TTS event listener but might not in test)
+      const pauseMessage = { type: 'pause' };
+      const pauseResponse = jest.fn();
+      await messageHandler.handleMessage(pauseMessage, {}, pauseResponse);
+
+      // Verify pause was processed correctly
+      expect(pauseResponse).toHaveBeenCalledWith({ status: 'paused' });
+      expect(ttsService.isSpeaking).toBe(false);
+      expect(ttsService.isPaused).toBe(true);
+
+      // Resume TTS
+      const resumeMessage = { type: 'resume' };
+      const resumeResponse = jest.fn();
+      await messageHandler.handleMessage(resumeMessage, {}, resumeResponse);
+
+      // Verify resume was processed correctly
+      expect(resumeResponse).toHaveBeenCalledWith({ status: 'resumed' });
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+    });
+
+    test('should show control bar with proper timing to prevent disabled buttons', async () => {
+      let ttsCallback;
+      
+      // Mock TTS to capture the callback for timing test
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        ttsCallback = callback;
+        // Don't call callback immediately - simulate async TTS
+      });
+
+      // Mock tabs.query for control bar display
+      chrome.tabs.query.mockResolvedValue([{ id: 1 }]);
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        if (callback) callback({ status: 'success' });
+      });
+
+      // Start TTS (this should not show control bar yet)
+      const speakMessage = { type: 'speak', text: 'Test text' };
+      const speakResponse = jest.fn();
+      const speakPromise = messageHandler.handleMessage(speakMessage, {}, speakResponse);
+
+      // At this point, TTS callback hasn't been called yet
+      // Control bar should not be shown yet (preventing the disabled buttons bug)
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+
+      // Now simulate TTS successfully starting
+      ttsCallback();
+      await speakPromise;
+
+      // Now control bar should be shown (the key fix - timing is correct)
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          type: 'showControlBar'
+        })
+      );
+
+      // Verify the response was sent correctly
+      expect(speakResponse).toHaveBeenCalledWith({ status: 'speaking' });
+      
+      // Verify TTS service state is correct (this is what matters for button enabling)
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+    });
+  });
 });

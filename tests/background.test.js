@@ -80,6 +80,55 @@ describe('TTSService', () => {
         expect.any(Function)
       );
     });
+
+    test('should reset paused state when starting new speech', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Simulate service being in paused state
+      ttsService.isSpeaking = false;
+      ttsService.isPaused = true;
+
+      // Start new speech
+      await ttsService.speak('New speech after pause');
+
+      // Verify that chrome.tts.stop was called to clear previous state
+      expect(chrome.tts.stop).toHaveBeenCalled();
+      
+      // Verify that state is properly reset
+      expect(ttsService.isSpeaking).toBe(true);
+      expect(ttsService.isPaused).toBe(false);
+    });
+
+    test('should stop existing TTS before starting new speech', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback();
+      });
+
+      // Start first speech
+      await ttsService.speak('First speech');
+      
+      // Reset mock to track second call
+      chrome.tts.stop.mockClear();
+      
+      // Start second speech - should stop first one
+      await ttsService.speak('Second speech');
+
+      // Verify that chrome.tts.stop was called to stop previous speech
+      expect(chrome.tts.stop).toHaveBeenCalled();
+      
+      // Verify that new speech was started
+      expect(chrome.tts.speak).toHaveBeenCalledWith(
+        'Second speech',
+        expect.objectContaining({
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0
+        }),
+        expect.any(Function)
+      );
+    });
   });
 
   describe('stop', () => {
