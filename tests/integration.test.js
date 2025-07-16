@@ -64,7 +64,8 @@ describe('Integration Tests', () => {
           rate: 1.5,
           pitch: 1.0,
           volume: 1.0,
-          voiceName: 'test-voice'
+          voiceName: 'test-voice',
+          onEvent: expect.any(Function)
         },
         expect.any(Function)
       );
@@ -170,7 +171,8 @@ describe('Integration Tests', () => {
           rate: 1.0,
           pitch: 1.0,
           volume: 1.0,
-          voiceName: 'Voice 1'
+          voiceName: 'Voice 1',
+          onEvent: expect.any(Function)
         },
         expect.any(Function)
       );

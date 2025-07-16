@@ -72,7 +72,27 @@ class TTSService {
       const ttsOptions = {
         rate: options.rate || 1.0,
         pitch: options.pitch || 1.0,
-        volume: options.volume || 1.0
+        volume: options.volume || 1.0,
+        onEvent: (event) => {
+          console.log('TTS Event:', event.type);
+          
+          if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+            this.isSpeaking = false;
+            this.isPaused = false;
+            // Hide floating control bar when TTS stops
+            hideFloatingControlBar();
+          } else if (event.type === "pause") {
+            this.isSpeaking = false;
+            this.isPaused = true;
+            // Update control bar to show resume button
+            updateControlBarStatus();
+          } else if (event.type === "resume") {
+            this.isSpeaking = true;
+            this.isPaused = false;
+            // Update control bar to show pause button
+            updateControlBarStatus();
+          }
+        }
       };
 
       if (options.voiceName) {
@@ -338,27 +358,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Handle TTS events
-chrome.tts.onEvent.addListener((event) => {
-  console.log('TTS Event:', event.type);
-  
-  if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
-    ttsService.isSpeaking = false;
-    ttsService.isPaused = false;
-    // Hide floating control bar when TTS stops
-    hideFloatingControlBar();
-  } else if (event.type === "pause") {
-    ttsService.isSpeaking = false;
-    ttsService.isPaused = true;
-    // Update control bar to show resume button
-    updateControlBarStatus();
-  } else if (event.type === "resume") {
-    ttsService.isSpeaking = true;
-    ttsService.isPaused = false;
-    // Update control bar to show pause button
-    updateControlBarStatus();
-  }
-});
+// TTS events are now handled directly in the onEvent callback of each speak() call
 
 // Listen for the open_popup command and speak the selected content
 chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addListener(async (command) => {
@@ -370,7 +370,27 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
         const options = {
           rate: prefs.speechRate ? parseFloat(prefs.speechRate) : 1.0,
           pitch: 1.0,
-          volume: 1.0
+          volume: 1.0,
+          onEvent: (event) => {
+            console.log('TTS Event (keyboard shortcut):', event.type);
+            
+            if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+              ttsService.isSpeaking = false;
+              ttsService.isPaused = false;
+              // Hide floating control bar when TTS stops
+              hideFloatingControlBar();
+            } else if (event.type === "pause") {
+              ttsService.isSpeaking = false;
+              ttsService.isPaused = true;
+              // Update control bar to show resume button
+              updateControlBarStatus();
+            } else if (event.type === "resume") {
+              ttsService.isSpeaking = true;
+              ttsService.isPaused = false;
+              // Update control bar to show pause button
+              updateControlBarStatus();
+            }
+          }
         };
         
         if (prefs.selectedVoice) {

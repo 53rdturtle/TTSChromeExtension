@@ -31,7 +31,8 @@ describe('TTSService', () => {
           rate: 1.5,
           pitch: 1.0,
           volume: 1.0,
-          voiceName: 'test-voice'
+          voiceName: 'test-voice',
+          onEvent: expect.any(Function)
         },
         expect.any(Function)
       );
@@ -75,7 +76,8 @@ describe('TTSService', () => {
         {
           rate: 1.0,
           pitch: 1.0,
-          volume: 1.0
+          volume: 1.0,
+          onEvent: expect.any(Function)
         },
         expect.any(Function)
       );
@@ -205,6 +207,19 @@ describe('TTSService', () => {
         isSpeaking: true,
         isPaused: false
       });
+    });
+
+    test('should handle TTS end event and update state', async () => {
+      chrome.tts.speak.mockImplementation((text, options, callback) => {
+        callback(); // Simulate successful start
+        // Simulate TTS end event immediately after
+        options.onEvent({ type: 'end' });
+      });
+
+      await ttsService.speak('Hello world');
+
+      expect(ttsService.isSpeaking).toBe(false);
+      expect(ttsService.isPaused).toBe(false);
     });
   });
 });
