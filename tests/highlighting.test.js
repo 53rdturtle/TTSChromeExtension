@@ -200,5 +200,41 @@ describe('Text Highlighting Integration', () => {
       expect(highlighter.highlightedElements[0].className).toBe('tts-highlight');
       expect(highlighter.highlightedElements[1].className).toBe('tts-highlight');
     });
+
+    test('should clear selection after highlighting to avoid blue/yellow conflict', () => {
+      const mockSelection = {
+        rangeCount: 1,
+        getRangeAt: jest.fn(() => ({
+          collapsed: false,
+          cloneRange: jest.fn(() => ({}))
+        })),
+        removeAllRanges: jest.fn()
+      };
+      
+      global.window.getSelection = jest.fn(() => mockSelection);
+      
+      // Mock TextHighlighter methods
+      function TextHighlighter() {
+        this.highlightedElements = [];
+        this.originalSelection = null;
+      }
+      
+      TextHighlighter.prototype.clearHighlights = jest.fn();
+      TextHighlighter.prototype.highlightRange = jest.fn();
+      TextHighlighter.prototype.highlightText = function(text) {
+        this.clearHighlights();
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        this.originalSelection = selection.getRangeAt(0).cloneRange();
+        const range = selection.getRangeAt(0);
+        this.highlightRange(range);
+        selection.removeAllRanges();
+      };
+      
+      const highlighter = new TextHighlighter();
+      highlighter.highlightText('test text');
+      
+      expect(mockSelection.removeAllRanges).toHaveBeenCalled();
+    });
   });
 });

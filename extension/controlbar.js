@@ -21,6 +21,9 @@ class TextHighlighter {
     // Create highlight spans for the selected text
     const range = selection.getRangeAt(0);
     this.highlightRange(range);
+    
+    // Clear the selection to avoid blue highlight conflicting with yellow highlight
+    selection.removeAllRanges();
   }
 
   // Apply highlighting to a range
