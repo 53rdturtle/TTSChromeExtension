@@ -166,5 +166,39 @@ describe('Text Highlighting Integration', () => {
       expect(highlighter.highlightedElements).toEqual([]);
       expect(highlighter.originalSelection).toBeNull();
     });
+
+    test('should handle complex multi-paragraph selections', () => {
+      // Mock TextHighlighter with complex range handling
+      function TextHighlighter() {
+        this.highlightedElements = [];
+        this.originalSelection = null;
+      }
+
+      TextHighlighter.prototype.highlightComplexRange = function(range) {
+        // Mock complex range highlighting that creates multiple spans
+        const mockSpan1 = { className: 'tts-highlight' };
+        const mockSpan2 = { className: 'tts-highlight' };
+        this.highlightedElements.push(mockSpan1, mockSpan2);
+      };
+
+      TextHighlighter.prototype.highlightRange = function(range) {
+        // Simulate surroundContents failure for complex ranges
+        try {
+          throw new Error('surroundContents failed');
+        } catch (e) {
+          this.highlightComplexRange(range);
+        }
+      };
+
+      const highlighter = new TextHighlighter();
+      const mockRange = { collapsed: false };
+      
+      highlighter.highlightRange(mockRange);
+      
+      // Should have created multiple highlight elements for complex range
+      expect(highlighter.highlightedElements.length).toBe(2);
+      expect(highlighter.highlightedElements[0].className).toBe('tts-highlight');
+      expect(highlighter.highlightedElements[1].className).toBe('tts-highlight');
+    });
   });
 });

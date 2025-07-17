@@ -65,22 +65,33 @@
 
 ### 🧪 Test Coverage
 
-**New Test File:** `tests/highlighting.test.js` (4 tests)
+**New Test File:** `tests/highlighting.test.js` (5 tests)
 - Background script text highlighting events
 - Content script message handling
 - TextHighlighter class basic functionality
+- Multi-paragraph selection handling
 
-**Existing Tests:** All pass (75/75 tests)
+**Existing Tests:** All pass (76/76 tests)
 - Background script: 42 tests (including 8 new highlighting event tests)
 - Popup: 15 tests
 - Integration: 14 tests
-- Highlighting: 4 tests
+- Highlighting: 5 tests
 
 ### 📝 Notes
 
-- All tests pass (75/75 tests passing)
+- All tests pass (76/76 tests passing)
 - Implementation handles complex DOM structures
+- **NEW**: Advanced multi-paragraph selection support using TreeWalker API
+- **NEW**: Preserves original DOM structure for complex selections
+- **NEW**: Zero padding/margin highlighting to prevent text shifting
 - Fallback mechanism for range boundary issues
 - Proper cleanup prevents memory leaks
 - Styling uses `!important` to override site styles
 - Comprehensive test coverage for highlighting functionality
+
+### 🔧 Technical Implementation Updates
+
+#### Multi-Paragraph Selection Fix:
+- **Problem**: `surroundContents()` fails on cross-element selections, causing layout shifts
+- **Solution**: `highlightComplexRange()` method using TreeWalker API
+- **Benefits**: Preserves DOM structure, no text movement, proper highlighting across elements

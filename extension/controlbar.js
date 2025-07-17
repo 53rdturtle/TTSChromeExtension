@@ -28,37 +28,111 @@ class TextHighlighter {
     if (range.collapsed) return;
     
     try {
-      // Create a highlight span
-      const highlightSpan = document.createElement('span');
-      highlightSpan.className = 'tts-highlight';
-      highlightSpan.style.cssText = `
-        background-color: #ffeb3b !important;
-        color: #000 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        display: inline !important;
-        position: static !important;
-        transition: all 0.2s ease !important;
-      `;
-      
-      // Surround the range content with the highlight span
+      // Try simple surroundContents first for single-element ranges
       try {
+        const highlightSpan = document.createElement('span');
+        highlightSpan.className = 'tts-highlight';
+        highlightSpan.style.cssText = `
+          background-color: #ffeb3b !important;
+          color: #000 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          display: inline !important;
+          position: static !important;
+          transition: all 0.2s ease !important;
+        `;
+        
         range.surroundContents(highlightSpan);
         this.highlightedElements.push(highlightSpan);
       } catch (e) {
-        // If surroundContents fails (e.g., range crosses element boundaries),
-        // extract contents and wrap them
-        const contents = range.extractContents();
-        highlightSpan.appendChild(contents);
-        range.insertNode(highlightSpan);
-        this.highlightedElements.push(highlightSpan);
+        // If surroundContents fails, use a more robust approach
+        // that preserves the original DOM structure
+        this.highlightComplexRange(range);
       }
     } catch (error) {
       console.error('Error highlighting text:', error);
     }
+  }
+
+  // Handle complex ranges that span multiple elements
+  highlightComplexRange(range) {
+    // Create a TreeWalker to traverse text nodes in the range
+    const walker = document.createTreeWalker(
+      range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          // Check if this text node intersects with our range
+          const nodeRange = document.createRange();
+          nodeRange.selectNodeContents(node);
+          
+          // Check if the node is within the selection range
+          if (range.intersectsNode && range.intersectsNode(node)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          
+          // Fallback for older browsers
+          try {
+            return (range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0 &&
+                    range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0) 
+                    ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          } catch (e) {
+            return NodeFilter.FILTER_REJECT;
+          }
+        }
+      }
+    );
+
+    const textNodes = [];
+    let node;
+    
+    // Collect all text nodes in the range
+    while (node = walker.nextNode()) {
+      textNodes.push(node);
+    }
+
+    // Highlight each text node separately
+    textNodes.forEach(textNode => {
+      try {
+        // Create a range for this text node
+        const textRange = document.createRange();
+        textRange.selectNodeContents(textNode);
+        
+        // Adjust range boundaries if needed
+        if (textNode === range.startContainer) {
+          textRange.setStart(textNode, range.startOffset);
+        }
+        if (textNode === range.endContainer) {
+          textRange.setEnd(textNode, range.endOffset);
+        }
+        
+        // Only highlight if there's actual content
+        if (!textRange.collapsed && textRange.toString().trim()) {
+          const highlightSpan = document.createElement('span');
+          highlightSpan.className = 'tts-highlight';
+          highlightSpan.style.cssText = `
+            background-color: #ffeb3b !important;
+            color: #000 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            display: inline !important;
+            position: static !important;
+            transition: all 0.2s ease !important;
+          `;
+          
+          textRange.surroundContents(highlightSpan);
+          this.highlightedElements.push(highlightSpan);
+        }
+      } catch (e) {
+        console.error('Error highlighting text node:', e);
+      }
+    });
   }
 
   // Clear all highlights
