@@ -72,3 +72,7 @@ Components communicate via Chrome extension messaging:
 - Test files mirror the structure of source files
 - Coverage target: 85%+ overall, 90%+ unit tests
 - E2E tests can run in headless mode for CI/CD
+
+## Git Workflow
+
+**IMPORTANT**: Do not commit or push to origin unless explicitly instructed by the user. Only make code changes, run tests, and update documentation. Wait for explicit instructions before running git commands.
