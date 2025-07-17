@@ -10,7 +10,13 @@ global.chrome = {
   },
   tabs: {
     query: jest.fn(),
-    sendMessage: jest.fn()
+    sendMessage: jest.fn(),
+    onActivated: {
+      addListener: jest.fn()
+    },
+    onUpdated: {
+      addListener: jest.fn()
+    }
   },
   storage: {
     sync: {

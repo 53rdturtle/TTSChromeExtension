@@ -3,7 +3,8 @@
   "name": "TTS Chrome Extension",
   "version": "1.0",
   "description": "A basic Chrome extension for text-to-speech functionality.",
-  "permissions": ["storage", "activeTab", "tts", "scripting"],
+  "permissions": ["storage", "activeTab", "tabs", "tts", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

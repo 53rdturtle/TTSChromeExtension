@@ -663,45 +663,56 @@ if (!window.ttsMessageListenerAdded) {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!window.floatingControlBar) {
-    window.floatingControlBar = new FloatingControlBar();
-  }
-  
-  if (!window.textHighlighter) {
-    window.textHighlighter = new TextHighlighter();
-  }
+    console.log('Content script received message:', message);
+    
+    if (!window.floatingControlBar) {
+      console.log('Creating new FloatingControlBar');
+      window.floatingControlBar = new FloatingControlBar();
+    }
+    
+    if (!window.textHighlighter) {
+      console.log('Creating new TextHighlighter');
+      window.textHighlighter = new TextHighlighter();
+    }
 
-  switch (message.type) {
-    case 'showControlBar':
-      window.floatingControlBar.show();
-      // Set initial state if provided
-      if (message.isSpeaking !== undefined || message.isPaused !== undefined) {
+    switch (message.type) {
+      case 'showControlBar':
+        console.log('Showing control bar');
+        window.floatingControlBar.show();
+        // Set initial state if provided
+        if (message.isSpeaking !== undefined || message.isPaused !== undefined) {
+          console.log('Updating control bar status:', message.isSpeaking, message.isPaused);
+          window.floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
+        }
+        // Initialize speed display
+        window.floatingControlBar.initializeSpeedDisplay();
+        sendResponse({ status: 'success' });
+        break;
+      case 'hideControlBar':
+        console.log('Hiding control bar');
+        window.floatingControlBar.hide();
+        sendResponse({ status: 'success' });
+        break;
+      case 'updateStatus':
+        console.log('Updating control bar status:', message.isSpeaking, message.isPaused);
         window.floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
-      }
-      // Initialize speed display
-      window.floatingControlBar.initializeSpeedDisplay();
-      sendResponse({ status: 'success' });
-      break;
-    case 'hideControlBar':
-      window.floatingControlBar.hide();
-      sendResponse({ status: 'success' });
-      break;
-    case 'updateStatus':
-      window.floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
-      sendResponse({ status: 'success' });
-      break;
-    case 'highlightText':
-      if (message.action === 'start') {
-        window.textHighlighter.highlightText(message.text);
-      } else if (message.action === 'end') {
-        window.textHighlighter.clearHighlights();
-      }
-      sendResponse({ status: 'success' });
-      break;
-    default:
-      sendResponse({ status: 'error', error: 'Unknown message type' });
-  }
-});
+        sendResponse({ status: 'success' });
+        break;
+      case 'highlightText':
+        if (message.action === 'start') {
+          console.log('Starting text highlighting');
+          window.textHighlighter.highlightText(message.text);
+        } else if (message.action === 'end') {
+          console.log('Ending text highlighting');
+          window.textHighlighter.clearHighlights();
+        }
+        sendResponse({ status: 'success' });
+        break;
+      default:
+        console.log('Unknown message type:', message.type);
+        sendResponse({ status: 'error', error: 'Unknown message type' });
+    }
+  });
 
 } // End of message listener guard
 
