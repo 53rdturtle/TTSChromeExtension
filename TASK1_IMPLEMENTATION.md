@@ -103,6 +103,6 @@
 - **Benefits**: Clean yellow highlighting without blue selection interference
 
 #### Script Re-injection Prevention:
-- **Problem**: Content script injected multiple times causing "class already declared" errors
-- **Solution**: Guard checks for existing classes and message listeners
-- **Benefits**: Prevents redeclaration errors and duplicate initialization
+- **Problem**: Content script injected multiple times causing "class already declared" and "variable already declared" errors
+- **Solution**: Guard checks for existing classes, message listeners, and global variables
+- **Benefits**: Prevents redeclaration errors and duplicate initialization while maintaining functionality

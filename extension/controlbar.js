@@ -650,8 +650,12 @@ window.FloatingControlBar = FloatingControlBar;
 }
 
 // Initialize the floating control bar and text highlighter
-let floatingControlBar = null;
-let textHighlighter = null;
+if (typeof window.floatingControlBar === 'undefined') {
+  window.floatingControlBar = null;
+}
+if (typeof window.textHighlighter === 'undefined') {
+  window.textHighlighter = null;
+}
 
 // Only add message listener if not already added
 if (!window.ttsMessageListenerAdded) {
@@ -659,38 +663,38 @@ if (!window.ttsMessageListenerAdded) {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!floatingControlBar) {
-    floatingControlBar = new FloatingControlBar();
+  if (!window.floatingControlBar) {
+    window.floatingControlBar = new FloatingControlBar();
   }
   
-  if (!textHighlighter) {
-    textHighlighter = new TextHighlighter();
+  if (!window.textHighlighter) {
+    window.textHighlighter = new TextHighlighter();
   }
 
   switch (message.type) {
     case 'showControlBar':
-      floatingControlBar.show();
+      window.floatingControlBar.show();
       // Set initial state if provided
       if (message.isSpeaking !== undefined || message.isPaused !== undefined) {
-        floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
+        window.floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
       }
       // Initialize speed display
-      floatingControlBar.initializeSpeedDisplay();
+      window.floatingControlBar.initializeSpeedDisplay();
       sendResponse({ status: 'success' });
       break;
     case 'hideControlBar':
-      floatingControlBar.hide();
+      window.floatingControlBar.hide();
       sendResponse({ status: 'success' });
       break;
     case 'updateStatus':
-      floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
+      window.floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
       sendResponse({ status: 'success' });
       break;
     case 'highlightText':
       if (message.action === 'start') {
-        textHighlighter.highlightText(message.text);
+        window.textHighlighter.highlightText(message.text);
       } else if (message.action === 'end') {
-        textHighlighter.clearHighlights();
+        window.textHighlighter.clearHighlights();
       }
       sendResponse({ status: 'success' });
       break;
