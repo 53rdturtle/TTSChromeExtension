@@ -25,7 +25,7 @@
   "commands": {
     "open_popup": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Z"
+        "default": "Ctrl+Q"
       },
       "description": "Open TTS popup"
     }
