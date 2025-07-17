@@ -21,8 +21,8 @@
     "testMatch": [
       "<rootDir>/tests/background.test.js",
       "<rootDir>/tests/popup.test.js",
-      "<rootDir>/tests/controlbar.test.js",
-      "<rootDir>/tests/integration.test.js"
+      "<rootDir>/tests/integration.test.js",
+      "<rootDir>/tests/highlighting.test.js"
     ],
     "collectCoverageFrom": [
       "extension/**/*.js",

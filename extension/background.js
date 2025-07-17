@@ -76,9 +76,29 @@ class TTSService {
         onEvent: (event) => {
           console.log('TTS Event:', event.type);
           
-          if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+          if (event.type === "start") {
+            // Send message to content script to highlight text
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+              if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                  type: 'highlightText',
+                  text: text,
+                  action: 'start'
+                });
+              }
+            });
+          } else if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
             this.isSpeaking = false;
             this.isPaused = false;
+            // Send message to content script to remove highlights
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+              if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                  type: 'highlightText',
+                  action: 'end'
+                });
+              }
+            });
             // Hide floating control bar when TTS stops
             hideFloatingControlBar();
           } else if (event.type === "pause") {
@@ -374,9 +394,29 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
           onEvent: (event) => {
             console.log('TTS Event (keyboard shortcut):', event.type);
             
-            if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+            if (event.type === "start") {
+              // Send message to content script to highlight text
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    type: 'highlightText',
+                    text: selectedText,
+                    action: 'start'
+                  });
+                }
+              });
+            } else if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
               ttsService.isSpeaking = false;
               ttsService.isPaused = false;
+              // Send message to content script to remove highlights
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    type: 'highlightText',
+                    action: 'end'
+                  });
+                }
+              });
               // Hide floating control bar when TTS stops
               hideFloatingControlBar();
             } else if (event.type === "pause") {

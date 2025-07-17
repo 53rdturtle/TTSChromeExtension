@@ -366,4 +366,163 @@ describe('MessageHandler', () => {
       });
     });
   });
+
+  describe('Text Highlighting Events', () => {
+    let ttsService;
+    let mockTabs;
+
+    beforeEach(() => {
+      ttsService = new TTSService();
+      mockTabs = [{ id: 1, active: true }];
+      chrome.tabs.query = jest.fn((query, callback) => callback(mockTabs));
+      chrome.tabs.sendMessage = jest.fn();
+    });
+
+    test('should send highlight start message on TTS start event', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      // Mock chrome.tts.speak to capture the onEvent callback
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback(); // Simulate successful TTS start
+      });
+
+      // Start TTS
+      await ttsService.speak(testText);
+
+      // Simulate TTS start event
+      onEventCallback({ type: 'start' });
+
+      expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true }, expect.any(Function));
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        text: testText,
+        action: 'start'
+      });
+    });
+
+    test('should send highlight end message on TTS end event', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS end event
+      onEventCallback({ type: 'end' });
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+    });
+
+    test('should send highlight end message on TTS error event', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS error event
+      onEventCallback({ type: 'error' });
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+    });
+
+    test('should send highlight end message on TTS interrupted event', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS interrupted event
+      onEventCallback({ type: 'interrupted' });
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+    });
+
+    test('should send highlight end message on TTS cancelled event', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS cancelled event
+      onEventCallback({ type: 'cancelled' });
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+    });
+
+    test('should not send highlight messages when no active tab', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      // Mock no active tabs
+      chrome.tabs.query = jest.fn((query, callback) => callback([]));
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS start event
+      onEventCallback({ type: 'start' });
+
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('should not send highlight messages on pause/resume events', async () => {
+      const testText = 'Test text for highlighting';
+      let onEventCallback;
+
+      chrome.tts.speak = jest.fn((text, options, callback) => {
+        onEventCallback = options.onEvent;
+        callback();
+      });
+
+      await ttsService.speak(testText);
+
+      // Simulate TTS pause event
+      onEventCallback({ type: 'pause' });
+
+      // Simulate TTS resume event  
+      onEventCallback({ type: 'resume' });
+
+      // Should not send any highlight messages for pause/resume
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(1, expect.objectContaining({
+        type: 'highlightText'
+      }));
+    });
+  });
 });

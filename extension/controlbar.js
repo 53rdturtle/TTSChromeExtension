@@ -1,5 +1,81 @@
 // Content script for TTS Chrome Extension
-// Handles floating control bar display
+// Handles floating control bar display and text highlighting
+
+// TextHighlighter class to handle text highlighting during TTS
+class TextHighlighter {
+  constructor() {
+    this.highlightedElements = [];
+    this.originalSelection = null;
+  }
+
+  // Highlight the selected text
+  highlightText(text) {
+    this.clearHighlights();
+    
+    // Store current selection
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return;
+    
+    this.originalSelection = selection.getRangeAt(0).cloneRange();
+    
+    // Create highlight spans for the selected text
+    const range = selection.getRangeAt(0);
+    this.highlightRange(range);
+  }
+
+  // Apply highlighting to a range
+  highlightRange(range) {
+    if (range.collapsed) return;
+    
+    try {
+      // Create a highlight span
+      const highlightSpan = document.createElement('span');
+      highlightSpan.className = 'tts-highlight';
+      highlightSpan.style.cssText = `
+        background-color: #ffeb3b !important;
+        color: #000 !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        transition: all 0.2s ease !important;
+      `;
+      
+      // Surround the range content with the highlight span
+      try {
+        range.surroundContents(highlightSpan);
+        this.highlightedElements.push(highlightSpan);
+      } catch (e) {
+        // If surroundContents fails (e.g., range crosses element boundaries),
+        // extract contents and wrap them
+        const contents = range.extractContents();
+        highlightSpan.appendChild(contents);
+        range.insertNode(highlightSpan);
+        this.highlightedElements.push(highlightSpan);
+      }
+    } catch (error) {
+      console.error('Error highlighting text:', error);
+    }
+  }
+
+  // Clear all highlights
+  clearHighlights() {
+    this.highlightedElements.forEach(element => {
+      if (element.parentNode) {
+        // Move the contents back to the parent and remove the highlight span
+        const parent = element.parentNode;
+        while (element.firstChild) {
+          parent.insertBefore(element.firstChild, element);
+        }
+        parent.removeChild(element);
+        
+        // Normalize the parent to merge adjacent text nodes
+        parent.normalize();
+      }
+    });
+    
+    this.highlightedElements = [];
+  }
+}
 
 class FloatingControlBar {
   constructor() {
@@ -482,13 +558,18 @@ class FloatingControlBar {
   }
 }
 
-// Initialize the floating control bar
+// Initialize the floating control bar and text highlighter
 let floatingControlBar = null;
+let textHighlighter = null;
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!floatingControlBar) {
     floatingControlBar = new FloatingControlBar();
+  }
+  
+  if (!textHighlighter) {
+    textHighlighter = new TextHighlighter();
   }
 
   switch (message.type) {
@@ -510,6 +591,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       floatingControlBar.updateStatus(message.isSpeaking, message.isPaused);
       sendResponse({ status: 'success' });
       break;
+    case 'highlightText':
+      if (message.action === 'start') {
+        textHighlighter.highlightText(message.text);
+      } else if (message.action === 'end') {
+        textHighlighter.clearHighlights();
+      }
+      sendResponse({ status: 'success' });
+      break;
     default:
       sendResponse({ status: 'error', error: 'Unknown message type' });
   }
@@ -517,7 +606,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 console.log('TTS Content script loaded');
 
-// Export class for testing
+// Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FloatingControlBar };
+  module.exports = { FloatingControlBar, TextHighlighter };
 } 

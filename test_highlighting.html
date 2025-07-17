@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Highlighting Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .instructions {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TTS Text Highlighting Test Page</h1>
+    
+    <div class="instructions">
+        <h2>Testing Instructions</h2>
+        <ol>
+            <li>Select any text on this page</li>
+            <li>Press <strong>Ctrl+Q</strong> to start TTS</li>
+            <li>The selected text should be highlighted with a yellow background</li>
+            <li>The highlight should disappear when TTS finishes</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h2>Simple Text Test</h2>
+        <p>This is a simple paragraph of text that can be selected and spoken using the TTS extension. The text highlighting should work perfectly with this basic content.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Multi-sentence Test</h2>
+        <p>This paragraph contains multiple sentences. The first sentence talks about text-to-speech functionality. The second sentence discusses highlighting features. The third sentence mentions the Chrome extension capabilities.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Formatted Text Test</h2>
+        <p>This paragraph contains <strong>bold text</strong>, <em>italic text</em>, and <u>underlined text</u>. The highlighting should work correctly even with these formatting elements mixed in.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Link Test</h2>
+        <p>This paragraph contains a <a href="#" onclick="return false;">test link</a> and some text after it. The highlighting should handle the link element properly without breaking the functionality.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>List Test</h2>
+        <ul>
+            <li>First list item with selectable text</li>
+            <li>Second list item with more content</li>
+            <li>Third list item for testing purposes</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>Long Text Test</h2>
+        <p>This is a longer paragraph designed to test the text highlighting functionality with more substantial content. The paragraph includes various words and phrases that should be highlighted when selected. The highlighting should maintain proper styling and not interfere with the existing page layout. Testing with longer text helps ensure the highlighting system works well with realistic content that users might encounter on actual websites.</p>
+    </div>
+</body>
+</html>

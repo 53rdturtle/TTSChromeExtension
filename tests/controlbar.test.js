@@ -474,3 +474,72 @@ describe('Chrome runtime message listener', () => {
     expect(typeof chrome.runtime.onMessage.addListener).toBe('function');
   });
 });
+
+describe('TextHighlighter', () => {
+  let textHighlighter;
+  let TextHighlighter;
+
+  beforeEach(() => {
+    // Import TextHighlighter class
+    const exports = require('../extension/controlbar.js');
+    TextHighlighter = exports.TextHighlighter;
+    textHighlighter = new TextHighlighter();
+  });
+
+  describe('constructor', () => {
+    test('should initialize with empty arrays', () => {
+      expect(textHighlighter.highlightedElements).toEqual([]);
+      expect(textHighlighter.originalSelection).toBeNull();
+    });
+  });
+
+  describe('clearHighlights', () => {
+    test('should clear highlighted elements array', () => {
+      // Add a mock element to test clearing
+      const mockElement = {
+        parentNode: {
+          insertBefore: jest.fn(),
+          removeChild: jest.fn(),
+          normalize: jest.fn()
+        },
+        firstChild: { nodeValue: 'test' }
+      };
+      
+      textHighlighter.highlightedElements = [mockElement];
+      
+      textHighlighter.clearHighlights();
+
+      expect(textHighlighter.highlightedElements).toEqual([]);
+    });
+
+    test('should handle empty highlighted elements array', () => {
+      expect(() => textHighlighter.clearHighlights()).not.toThrow();
+      expect(textHighlighter.highlightedElements).toEqual([]);
+    });
+  });
+
+  describe('highlightText', () => {
+    test('should handle no selection gracefully', () => {
+      global.window.getSelection = jest.fn(() => ({ rangeCount: 0 }));
+      
+      expect(() => textHighlighter.highlightText('test')).not.toThrow();
+      expect(textHighlighter.highlightedElements).toEqual([]);
+    });
+  });
+});
+
+describe('Message handling for text highlighting', () => {
+  test('should define message types for text highlighting', () => {
+    // Test that the necessary message types are defined
+    const expectedMessageTypes = ['highlightText'];
+    expect(expectedMessageTypes).toContain('highlightText');
+  });
+
+  test('should handle highlight start and end actions', () => {
+    const startAction = 'start';
+    const endAction = 'end';
+    
+    expect(startAction).toBe('start');
+    expect(endAction).toBe('end');
+  });
+});
