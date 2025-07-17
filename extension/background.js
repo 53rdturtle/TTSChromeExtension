@@ -62,10 +62,37 @@ class TTSService {
   // Speak the given text with specified options
   speak(text, options = {}) {
     return new Promise((resolve, reject) => {
+      // Stop any existing TTS before starting new speech
+      chrome.tts.stop();
+      
+      // Reset TTS service state
+      this.isSpeaking = false;
+      this.isPaused = false;
+      
       const ttsOptions = {
         rate: options.rate || 1.0,
         pitch: options.pitch || 1.0,
-        volume: options.volume || 1.0
+        volume: options.volume || 1.0,
+        onEvent: (event) => {
+          console.log('TTS Event:', event.type);
+          
+          if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+            this.isSpeaking = false;
+            this.isPaused = false;
+            // Hide floating control bar when TTS stops
+            hideFloatingControlBar();
+          } else if (event.type === "pause") {
+            this.isSpeaking = false;
+            this.isPaused = true;
+            // Update control bar to show resume button
+            updateControlBarStatus();
+          } else if (event.type === "resume") {
+            this.isSpeaking = true;
+            this.isPaused = false;
+            // Update control bar to show pause button
+            updateControlBarStatus();
+          }
+        }
       };
 
       if (options.voiceName) {
@@ -81,6 +108,8 @@ class TTSService {
         } else {
           this.isSpeaking = true;
           this.isPaused = false;
+          // Show control bar now that TTS is actually speaking
+          showFloatingControlBar();
           resolve({ status: 'speaking' });
         }
       });
@@ -177,6 +206,9 @@ class MessageHandler {
         case 'getSelectedText':
           await this.handleGetSelectedText(sendResponse);
           break;
+        case 'updateSpeed':
+          await this.handleUpdateSpeed(message, sendResponse);
+          break;
         default:
           console.log('Unknown message type:', message.type);
           sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -206,6 +238,8 @@ class MessageHandler {
       console.log('Calling TTS service speak...');
       const result = await this.ttsService.speak(message.text, options);
       console.log('TTS service speak result:', result);
+      
+      // Control bar will be shown by TTS service callback
       sendResponse(result);
     } catch (error) {
       console.error('TTS service speak error:', error);
@@ -217,6 +251,7 @@ class MessageHandler {
   async handleStop(sendResponse) {
     try {
       const result = await this.ttsService.stop();
+      // Update control bar will be hidden by TTS event listener
       sendResponse(result);
     } catch (error) {
       sendResponse({ status: 'error', error: error });
@@ -227,6 +262,7 @@ class MessageHandler {
   async handlePause(sendResponse) {
     try {
       const result = await this.ttsService.pause();
+      // Control bar will be updated by TTS event listener
       sendResponse(result);
     } catch (error) {
       sendResponse({ status: 'error', error: error });
@@ -237,6 +273,7 @@ class MessageHandler {
   async handleResume(sendResponse) {
     try {
       const result = await this.ttsService.resume();
+      // Control bar will be updated by TTS event listener
       sendResponse(result);
     } catch (error) {
       sendResponse({ status: 'error', error: error });
@@ -278,6 +315,36 @@ class MessageHandler {
       sendResponse({ status: 'error', error: error.message });
     }
   }
+
+  // Handle update speed message
+  async handleUpdateSpeed(message, sendResponse) {
+    try {
+      if (!message.rate || isNaN(message.rate)) {
+        sendResponse({ status: 'error', error: 'Invalid rate provided' });
+        return;
+      }
+
+      const rate = parseFloat(message.rate);
+      
+      // Validate rate bounds
+      if (rate < 0.1 || rate > 3.0) {
+        sendResponse({ status: 'error', error: 'Rate must be between 0.1 and 3.0' });
+        return;
+      }
+
+      // If TTS is currently speaking, we need to restart it with the new rate
+      if (this.ttsService.isSpeaking || this.ttsService.isPaused) {
+        // For now, just acknowledge the speed change
+        // In a full implementation, we might need to restart current speech with new rate
+        sendResponse({ status: 'success', message: 'Speed updated for future speech' });
+      } else {
+        sendResponse({ status: 'success', message: 'Speed updated' });
+      }
+    } catch (error) {
+      console.error('Error updating speed:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
 }
 
 // Initialize services
@@ -291,23 +358,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Handle TTS events
-chrome.tts.onEvent.addListener((event) => {
-  console.log('TTS Event:', event.type);
-  
-  if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
-    ttsService.isSpeaking = false;
-    ttsService.isPaused = false;
-    // Hide floating control bar when TTS stops
-    hideFloatingControlBar();
-  } else if (event.type === "pause") {
-    ttsService.isSpeaking = false;
-    ttsService.isPaused = true;
-  } else if (event.type === "resume") {
-    ttsService.isSpeaking = true;
-    ttsService.isPaused = false;
-  }
-});
+// TTS events are now handled directly in the onEvent callback of each speak() call
 
 // Listen for the open_popup command and speak the selected content
 chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addListener(async (command) => {
@@ -319,12 +370,39 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
         const options = {
           rate: prefs.speechRate ? parseFloat(prefs.speechRate) : 1.0,
           pitch: 1.0,
-          volume: 1.0
+          volume: 1.0,
+          onEvent: (event) => {
+            console.log('TTS Event (keyboard shortcut):', event.type);
+            
+            if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
+              ttsService.isSpeaking = false;
+              ttsService.isPaused = false;
+              // Hide floating control bar when TTS stops
+              hideFloatingControlBar();
+            } else if (event.type === "pause") {
+              ttsService.isSpeaking = false;
+              ttsService.isPaused = true;
+              // Update control bar to show resume button
+              updateControlBarStatus();
+            } else if (event.type === "resume") {
+              ttsService.isSpeaking = true;
+              ttsService.isPaused = false;
+              // Update control bar to show pause button
+              updateControlBarStatus();
+            }
+          }
         };
         
         if (prefs.selectedVoice) {
           options.voiceName = prefs.selectedVoice;
         }
+        
+        // Stop any existing TTS before starting new speech
+        chrome.tts.stop();
+        
+        // Reset TTS service state
+        ttsService.isSpeaking = false;
+        ttsService.isPaused = false;
         
         // Call TTS API directly
         chrome.tts.speak(selectedText, options, () => {
@@ -332,6 +410,9 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
             console.error('TTS Error:', chrome.runtime.lastError);
           } else {
             console.log('Speaking selected text:', selectedText);
+            // Update TTS service state to reflect current speaking status
+            ttsService.isSpeaking = true;
+            ttsService.isPaused = false;
             // Show floating control bar on active tab
             showFloatingControlBar();
           }
@@ -377,4 +458,26 @@ async function hideFloatingControlBar() {
   }
 }
 
-console.log('TTS Chrome Extension background script loaded'); 
+// Function to update control bar status
+async function updateControlBarStatus() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs && tabs[0]) {
+      const state = ttsService.getState();
+      chrome.tabs.sendMessage(tabs[0].id, { 
+        type: 'updateStatus',
+        isSpeaking: state.isSpeaking,
+        isPaused: state.isPaused
+      });
+    }
+  } catch (error) {
+    console.error('Error updating control bar status:', error);
+  }
+}
+
+console.log('TTS Chrome Extension background script loaded');
+
+// Export classes for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { TTSService, MessageHandler };
+} 

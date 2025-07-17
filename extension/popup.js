@@ -356,4 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (error) {
     console.error('Error in DOMContentLoaded:', error);
   }
-}); 
+});
+
+// Export class for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { TTSController };
+} 

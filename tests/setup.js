@@ -46,6 +46,51 @@ Object.defineProperty(window, 'getSelection', {
   }))
 });
 
+// Create proper DOM element mocks
+const createMockElement = (tagName) => {
+  const element = {
+    tagName: tagName.toUpperCase(),
+    style: {},
+    appendChild: jest.fn(),
+    removeChild: jest.fn(),
+    querySelector: jest.fn(),
+    querySelectorAll: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    setAttribute: jest.fn(),
+    getAttribute: jest.fn(),
+    classList: {
+      add: jest.fn(),
+      remove: jest.fn(),
+      toggle: jest.fn(),
+      contains: jest.fn()
+    },
+    parentNode: null,
+    textContent: '',
+    innerHTML: '',
+    value: '',
+    offsetWidth: 100,
+    offsetHeight: 50
+  };
+  return element;
+};
+
+// Mock document methods with proper element creation
+global.document = {
+  ...document,
+  createElement: jest.fn((tagName) => createMockElement(tagName)),
+  body: {
+    ...document.body,
+    appendChild: jest.fn(),
+    removeChild: jest.fn()
+  },
+  head: {
+    ...document.head,
+    appendChild: jest.fn(),
+    removeChild: jest.fn()
+  }
+};
+
 // Mock console methods to reduce test noise
 global.console = {
   ...console,
