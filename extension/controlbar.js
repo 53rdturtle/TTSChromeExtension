@@ -2,6 +2,7 @@
 // Handles floating control bar display and text highlighting
 
 // TextHighlighter class to handle text highlighting during TTS
+if (typeof window.TextHighlighter === 'undefined') {
 class TextHighlighter {
   constructor() {
     this.highlightedElements = [];
@@ -158,6 +159,11 @@ class TextHighlighter {
   }
 }
 
+// Make TextHighlighter available globally
+window.TextHighlighter = TextHighlighter;
+}
+
+if (typeof window.FloatingControlBar === 'undefined') {
 class FloatingControlBar {
   constructor() {
     this.controlBar = null;
@@ -639,12 +645,20 @@ class FloatingControlBar {
   }
 }
 
+// Make FloatingControlBar available globally
+window.FloatingControlBar = FloatingControlBar;
+}
+
 // Initialize the floating control bar and text highlighter
 let floatingControlBar = null;
 let textHighlighter = null;
 
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// Only add message listener if not already added
+if (!window.ttsMessageListenerAdded) {
+  window.ttsMessageListenerAdded = true;
+  
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!floatingControlBar) {
     floatingControlBar = new FloatingControlBar();
   }
@@ -684,6 +698,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ status: 'error', error: 'Unknown message type' });
   }
 });
+
+} // End of message listener guard
 
 console.log('TTS Content script loaded');
 
