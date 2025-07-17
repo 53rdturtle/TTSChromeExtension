@@ -34,9 +34,13 @@ class TextHighlighter {
       highlightSpan.style.cssText = `
         background-color: #ffeb3b !important;
         color: #000 !important;
-        padding: 2px 4px !important;
-        border-radius: 3px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        display: inline !important;
+        position: static !important;
         transition: all 0.2s ease !important;
       `;
       

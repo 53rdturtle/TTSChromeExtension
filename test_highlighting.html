@@ -42,13 +42,21 @@
             <li>Select any text on this page</li>
             <li>Press <strong>Ctrl+Q</strong> to start TTS</li>
             <li>The selected text should be highlighted with a yellow background</li>
+            <li>The text should NOT move or shift position when highlighted</li>
             <li>The highlight should disappear when TTS finishes</li>
         </ol>
+        <p><strong>Note:</strong> The highlighting now uses zero padding/margin to prevent text shifting.</p>
     </div>
     
     <div class="test-section">
         <h2>Simple Text Test</h2>
         <p>This is a simple paragraph of text that can be selected and spoken using the TTS extension. The text highlighting should work perfectly with this basic content.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Text Position Test</h2>
+        <p>Select this text to verify no shifting: <strong>The quick brown fox jumps over the lazy dog.</strong> The text before and after should remain in the same position when highlighted.</p>
+        <p>Notice how the text stays perfectly aligned: <em>Before highlight</em> | <u>Target text for selection</u> | <em>After highlight</em></p>
     </div>
     
     <div class="test-section">
