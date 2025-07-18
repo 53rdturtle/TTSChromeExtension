@@ -5,6 +5,12 @@ global.chrome = {
       addListener: jest.fn(),
       removeListener: jest.fn()
     },
+    onStartup: {
+      addListener: jest.fn()
+    },
+    onInstalled: {
+      addListener: jest.fn()
+    },
     sendMessage: jest.fn(),
     lastError: null
   },
@@ -85,6 +91,29 @@ const createMockElement = (tagName) => {
 global.document = {
   ...document,
   createElement: jest.fn((tagName) => createMockElement(tagName)),
+  getElementById: jest.fn((id) => {
+    // Return mock elements for the IDs used in popup.js
+    const mockElements = {
+      'voiceSelect': createMockElement('select'),
+      'rateRange': createMockElement('input'),
+      'rateValue': createMockElement('span'),
+      'text': createMockElement('textarea'),
+      'speakBtn': createMockElement('button'),
+      'stopBtn': createMockElement('button'),
+      'settingsBtn': createMockElement('button'),
+      'settingsPanel': createMockElement('div'),
+      'closeSettingsBtn': createMockElement('button'),
+      'modeFullSelection': createMockElement('input'),
+      'modeSentence': createMockElement('input'),
+      'modeWord': createMockElement('input'),
+      'highlightColor': createMockElement('input'),
+      'highlightOpacity': createMockElement('input'),
+      'opacityValue': createMockElement('span'),
+      'autoScrollToggle': createMockElement('input'),
+      'highlightingToggle': createMockElement('input')
+    };
+    return mockElements[id] || createMockElement('div');
+  }),
   body: {
     ...document.body,
     appendChild: jest.fn(),

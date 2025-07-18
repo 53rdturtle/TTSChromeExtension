@@ -1,5 +1,19 @@
 // Background service worker for TTS Chrome Extension
 
+// Default highlighting settings
+const DEFAULT_HIGHLIGHTING_SETTINGS = {
+  mode: 'full', // 'full', 'sentence', 'word'
+  enabled: true,
+  style: {
+    backgroundColor: '#ffeb3b',
+    textColor: '#000000',
+    opacity: 0.8,
+    borderStyle: 'none'
+  },
+  autoScroll: true,
+  animationEffects: true
+};
+
 // Global TTS state for cross-tab persistence
 let globalTTSState = {
   isSpeaking: false,
@@ -322,6 +336,12 @@ class MessageHandler {
         case 'updateSpeed':
           await this.handleUpdateSpeed(message, sendResponse);
           break;
+        case 'getHighlightingSettings':
+          await this.handleGetHighlightingSettings(sendResponse);
+          break;
+        case 'saveHighlightingSettings':
+          await this.handleSaveHighlightingSettings(message, sendResponse);
+          break;
         default:
           console.log('Unknown message type:', message.type);
           sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -455,6 +475,28 @@ class MessageHandler {
       }
     } catch (error) {
       console.error('Error updating speed:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
+
+  // Handle get highlighting settings message
+  async handleGetHighlightingSettings(sendResponse) {
+    try {
+      const settings = await getHighlightingSettings();
+      sendResponse({ status: 'success', settings: settings });
+    } catch (error) {
+      console.error('Error getting highlighting settings:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
+
+  // Handle save highlighting settings message
+  async handleSaveHighlightingSettings(message, sendResponse) {
+    try {
+      await saveHighlightingSettings(message.settings);
+      sendResponse({ status: 'success', message: 'Settings saved' });
+    } catch (error) {
+      console.error('Error saving highlighting settings:', error);
       sendResponse({ status: 'error', error: error.message });
     }
   }
@@ -723,9 +765,73 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 });
 
+// Settings storage functions
+async function getHighlightingSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(['highlightingSettings'], (result) => {
+      if (result.highlightingSettings) {
+        // Merge with defaults to ensure all properties exist
+        const settings = { ...DEFAULT_HIGHLIGHTING_SETTINGS, ...result.highlightingSettings };
+        resolve(settings);
+      } else {
+        resolve(DEFAULT_HIGHLIGHTING_SETTINGS);
+      }
+    });
+  });
+}
+
+async function saveHighlightingSettings(settings) {
+  return new Promise((resolve, reject) => {
+    // Validate settings structure
+    if (!settings || typeof settings !== 'object') {
+      reject(new Error('Invalid settings object'));
+      return;
+    }
+
+    // Validate mode
+    if (settings.mode && !['full', 'sentence', 'word'].includes(settings.mode)) {
+      reject(new Error('Invalid highlighting mode'));
+      return;
+    }
+
+    // Merge with existing settings and defaults
+    const mergedSettings = { ...DEFAULT_HIGHLIGHTING_SETTINGS, ...settings };
+
+    chrome.storage.sync.set({ highlightingSettings: mergedSettings }, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+// Initialize default settings on extension startup
+chrome.runtime.onStartup.addListener(async () => {
+  console.log('TTS Extension startup - initializing default settings');
+  try {
+    const settings = await getHighlightingSettings();
+    console.log('Current highlighting settings:', settings);
+  } catch (error) {
+    console.error('Error loading highlighting settings:', error);
+  }
+});
+
+// Initialize default settings on extension installation
+chrome.runtime.onInstalled.addListener(async () => {
+  console.log('TTS Extension installed - setting up default settings');
+  try {
+    const settings = await getHighlightingSettings();
+    console.log('Initialized highlighting settings:', settings);
+  } catch (error) {
+    console.error('Error initializing highlighting settings:', error);
+  }
+});
+
 console.log('TTS Chrome Extension background script loaded');
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TTSService, MessageHandler };
+  module.exports = { TTSService, MessageHandler, getHighlightingSettings, saveHighlightingSettings };
 } 

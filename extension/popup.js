@@ -13,6 +13,8 @@ class TTSController {
     this.loadSavedData().then(() => {
       console.log('Calling populateVoices...');
       this.populateVoices();
+      console.log('Loading highlighting settings...');
+      this.loadHighlightingSettings();
     });
     console.log('Constructor completed');
   }
@@ -26,7 +28,18 @@ class TTSController {
       rateValue: document.getElementById('rateValue'),
       textArea: document.getElementById('text'),
       speakBtn: document.getElementById('speakBtn'),
-      stopBtn: document.getElementById('stopBtn')
+      stopBtn: document.getElementById('stopBtn'),
+      settingsBtn: document.getElementById('settingsBtn'),
+      settingsPanel: document.getElementById('settingsPanel'),
+      closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+      modeFullSelection: document.getElementById('modeFullSelection'),
+      modeSentence: document.getElementById('modeSentence'),
+      modeWord: document.getElementById('modeWord'),
+      highlightColor: document.getElementById('highlightColor'),
+      highlightOpacity: document.getElementById('highlightOpacity'),
+      opacityValue: document.getElementById('opacityValue'),
+      autoScrollToggle: document.getElementById('autoScrollToggle'),
+      highlightingToggle: document.getElementById('highlightingToggle')
     };
     
     console.log('Elements found:', {
@@ -35,7 +48,10 @@ class TTSController {
       rateValue: !!elements.rateValue,
       textArea: !!elements.textArea,
       speakBtn: !!elements.speakBtn,
-      stopBtn: !!elements.stopBtn
+      stopBtn: !!elements.stopBtn,
+      settingsBtn: !!elements.settingsBtn,
+      settingsPanel: !!elements.settingsPanel,
+      closeSettingsBtn: !!elements.closeSettingsBtn
     });
     
     return elements;
@@ -48,6 +64,20 @@ class TTSController {
     this.elements.rateRange.addEventListener('input', () => this.updateRate());
     this.elements.speakBtn.addEventListener('click', () => this.speak());
     this.elements.stopBtn.addEventListener('click', () => this.stop());
+    
+    // Settings events
+    this.elements.settingsBtn.addEventListener('click', () => this.showSettings());
+    this.elements.closeSettingsBtn.addEventListener('click', () => this.hideSettings());
+    this.elements.highlightOpacity.addEventListener('input', () => this.updateOpacityValue());
+    
+    // Settings change events
+    this.elements.modeFullSelection.addEventListener('change', () => this.saveSettings());
+    this.elements.modeSentence.addEventListener('change', () => this.saveSettings());
+    this.elements.modeWord.addEventListener('change', () => this.saveSettings());
+    this.elements.highlightColor.addEventListener('change', () => this.saveSettings());
+    this.elements.highlightOpacity.addEventListener('change', () => this.saveSettings());
+    this.elements.autoScrollToggle.addEventListener('change', () => this.saveSettings());
+    this.elements.highlightingToggle.addEventListener('change', () => this.saveSettings());
   }
 
   // Load saved data from storage, but prefer selected text from the active tab if available
@@ -335,6 +365,107 @@ class TTSController {
         errorDiv.parentNode.removeChild(errorDiv);
       }
     }, 3000);
+  }
+
+  // Show settings panel
+  showSettings() {
+    console.log('Showing settings panel');
+    this.elements.settingsPanel.classList.add('active');
+  }
+
+  // Hide settings panel
+  hideSettings() {
+    console.log('Hiding settings panel');
+    this.elements.settingsPanel.classList.remove('active');
+  }
+
+  // Update opacity value display
+  updateOpacityValue() {
+    const opacity = this.elements.highlightOpacity.value;
+    this.elements.opacityValue.textContent = opacity;
+  }
+
+  // Load highlighting settings from storage
+  loadHighlightingSettings() {
+    console.log('Loading highlighting settings...');
+    chrome.runtime.sendMessage({ type: 'getHighlightingSettings' }, (response) => {
+      if (response && response.status === 'success') {
+        console.log('Loaded highlighting settings:', response.settings);
+        this.applySettingsToUI(response.settings);
+      } else {
+        console.error('Failed to load highlighting settings:', response?.error);
+      }
+    });
+  }
+
+  // Apply settings to UI elements
+  applySettingsToUI(settings) {
+    console.log('Applying settings to UI:', settings);
+    
+    // Set highlighting mode
+    if (settings.mode === 'full') {
+      this.elements.modeFullSelection.checked = true;
+    } else if (settings.mode === 'sentence') {
+      this.elements.modeSentence.checked = true;
+    } else if (settings.mode === 'word') {
+      this.elements.modeWord.checked = true;
+    }
+
+    // Set style options
+    if (settings.style) {
+      this.elements.highlightColor.value = settings.style.backgroundColor || '#ffeb3b';
+      this.elements.highlightOpacity.value = settings.style.opacity || 0.8;
+      this.elements.opacityValue.textContent = settings.style.opacity || 0.8;
+    }
+
+    // Set toggles
+    this.elements.autoScrollToggle.checked = settings.autoScroll !== false;
+    this.elements.highlightingToggle.checked = settings.enabled !== false;
+  }
+
+  // Save settings to storage
+  saveSettings() {
+    console.log('Saving settings...');
+    
+    // Get current settings from UI
+    const settings = {
+      mode: this.getSelectedMode(),
+      enabled: this.elements.highlightingToggle.checked,
+      style: {
+        backgroundColor: this.elements.highlightColor.value,
+        opacity: parseFloat(this.elements.highlightOpacity.value),
+        textColor: '#000000',
+        borderStyle: 'none'
+      },
+      autoScroll: this.elements.autoScrollToggle.checked,
+      animationEffects: true
+    };
+
+    console.log('Settings to save:', settings);
+
+    chrome.runtime.sendMessage({
+      type: 'saveHighlightingSettings',
+      settings: settings
+    }, (response) => {
+      if (response && response.status === 'success') {
+        console.log('Settings saved successfully');
+      } else {
+        console.error('Failed to save settings:', response?.error);
+        this.showError('Failed to save settings: ' + (response?.error || 'Unknown error'));
+      }
+    });
+  }
+
+  // Get selected highlighting mode
+  getSelectedMode() {
+    if (this.elements.modeFullSelection.checked) {
+      return 'full';
+    } else if (this.elements.modeSentence.checked) {
+      return 'sentence';
+    } else if (this.elements.modeWord.checked) {
+      return 'word';
+    }
+    return 'full'; // Default fallback
   }
 }
 

@@ -176,6 +176,157 @@
       font-size: 12px;
       color: #718096;
     }
+
+    .settings-btn {
+      flex: 0 0 auto;
+      width: 45px;
+      padding: 12px 8px;
+      background: #f7fafc;
+      border: 2px solid #e2e8f0;
+      color: #4a5568;
+      font-size: 16px;
+      margin-left: 5px;
+    }
+
+    .settings-btn:hover {
+      background: #edf2f7;
+      border-color: #cbd5e0;
+      transform: translateY(-1px);
+    }
+
+    .settings-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: white;
+      z-index: 1000;
+      padding: 20px;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .settings-panel.active {
+      display: block;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .settings-header h2 {
+      font-size: 16px;
+      color: #2d3748;
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: #718096;
+      cursor: pointer;
+      padding: 5px;
+    }
+
+    .close-btn:hover {
+      color: #4a5568;
+    }
+
+    .settings-group {
+      margin-bottom: 15px;
+    }
+
+    .settings-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .radio-option input[type="radio"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .radio-option label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .color-input {
+      width: 60px;
+      height: 35px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #667eea;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
   </style>
 </head>
 <body>
@@ -206,9 +357,63 @@
     <div class="button-group">
       <button id="speakBtn">Speak</button>
       <button id="stopBtn">Stop</button>
+      <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
     </div>
 
     <div class="status-indicator" id="statusIndicator"></div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <h2>Highlighting Settings</h2>
+        <button class="close-btn" id="closeSettingsBtn">×</button>
+      </div>
+
+      <div class="settings-group">
+        <label>Highlighting Mode:</label>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" id="modeFullSelection" name="highlightingMode" value="full">
+            <label for="modeFullSelection">Full Selection</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="modeSentence" name="highlightingMode" value="sentence">
+            <label for="modeSentence">Sentence-by-Sentence</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="modeWord" name="highlightingMode" value="word">
+            <label for="modeWord">Word-by-Word</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label for="highlightColor">Highlight Color:</label>
+        <input type="color" id="highlightColor" class="color-input" value="#ffeb3b">
+      </div>
+
+      <div class="settings-group">
+        <label for="highlightOpacity">Opacity:</label>
+        <input type="range" id="highlightOpacity" min="0.1" max="1" step="0.1" value="0.8">
+        <span class="rate-value" id="opacityValue">0.8</span>
+      </div>
+
+      <div class="settings-group">
+        <label>Auto-scroll:</label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autoScrollToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-group">
+        <label>Enable Highlighting:</label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="highlightingToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

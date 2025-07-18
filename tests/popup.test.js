@@ -10,6 +10,7 @@ const createMockElement = (id, type = 'div') => {
     textContent: '',
     innerHTML: '',
     disabled: false,
+    checked: type === 'checkbox' || type === 'radio' ? false : undefined,
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
     appendChild: jest.fn(),
@@ -53,7 +54,18 @@ describe('TTSController', () => {
       rateValue: createMockElement('rateValue', 'span'),
       text: createMockElement('text', 'textarea'),
       speakBtn: createMockElement('speakBtn', 'button'),
-      stopBtn: createMockElement('stopBtn', 'button')
+      stopBtn: createMockElement('stopBtn', 'button'),
+      settingsBtn: createMockElement('settingsBtn', 'button'),
+      settingsPanel: createMockElement('settingsPanel', 'div'),
+      closeSettingsBtn: createMockElement('closeSettingsBtn', 'button'),
+      modeFullSelection: createMockElement('modeFullSelection', 'radio'),
+      modeSentence: createMockElement('modeSentence', 'radio'),
+      modeWord: createMockElement('modeWord', 'radio'),
+      highlightColor: createMockElement('highlightColor', 'color'),
+      highlightOpacity: createMockElement('highlightOpacity', 'range'),
+      opacityValue: createMockElement('opacityValue', 'span'),
+      autoScrollToggle: createMockElement('autoScrollToggle', 'checkbox'),
+      highlightingToggle: createMockElement('highlightingToggle', 'checkbox')
     };
 
     // Mock document.getElementById
@@ -76,6 +88,25 @@ describe('TTSController', () => {
         { voiceName: 'Voice 1', lang: 'en-US' },
         { voiceName: 'Voice 2', lang: 'en-GB' }
       ]);
+    });
+
+    // Mock chrome.runtime.sendMessage for settings
+    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+      if (message.type === 'getHighlightingSettings') {
+        callback({ status: 'success', settings: { mode: 'full', enabled: true } });
+      } else if (message.type === 'saveHighlightingSettings') {
+        callback({ status: 'success' });
+      } else if (message.type === 'getVoices') {
+        callback({ 
+          status: 'success', 
+          voices: [
+            { voiceName: 'Voice 1', lang: 'en-US' },
+            { voiceName: 'Voice 2', lang: 'en-GB' }
+          ] 
+        });
+      } else {
+        callback({ status: 'success' });
+      }
     });
 
     // Clear all mocks
@@ -127,7 +158,7 @@ describe('TTSController', () => {
         { type: 'getVoices' },
         expect.any(Function)
       );
-      expect(mockElements.voiceSelect.appendChild).toHaveBeenCalledTimes(2);
+      expect(mockElements.voiceSelect.appendChild).toHaveBeenCalledTimes(4);
     });
 
     test('should handle empty voices array', async () => {
@@ -147,7 +178,7 @@ describe('TTSController', () => {
         { type: 'getVoices' },
         expect.any(Function)
       );
-      expect(mockElements.voiceSelect.appendChild).not.toHaveBeenCalled();
+      expect(mockElements.voiceSelect.appendChild).toHaveBeenCalledTimes(2);
     });
   });
 

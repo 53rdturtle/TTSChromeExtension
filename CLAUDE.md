@@ -84,74 +84,99 @@ Components communicate via Chrome extension messaging:
 ## Configurable Highlighting Implementation Plan
 
 ### Overview
-Implement three configurable highlighting modes during TTS playback:
+Implement three configurable highlighting modes during TTS playback with individual toggle controls and style customization:
 - **Full Selection**: Highlights entire selected text (✅ Already implemented)
 - **Sentence Mode**: Highlights current sentence being spoken
 - **Word Mode**: Highlights currently spoken word
 
+Each highlighting mode can be:
+- **Individually toggled** on/off
+- **Styled independently** with custom colors, opacity, and effects
+- **Combined together** for layered highlighting (e.g., word + sentence + full selection)
+
 ### Implementation Phases
 
-#### Phase 1: Settings Infrastructure
+#### Phase 1: Settings Infrastructure ✅ COMPLETED
 **Goal**: Create foundation for configurable highlighting
 
-**What we'll build:**
+**What we built:**
 - Settings storage system with highlighting preferences
 - Settings button in popup UI (gear icon next to existing controls)
 - Settings panel within popup containing mode selector and style options
 - Default configuration (Full Selection mode)
 
-**Files to modify:**
-- `extension/popup.html` - Add settings button and panel
-- `extension/popup.js` - Add settings UI logic
-- `extension/background.js` - Add settings management
+**Files modified:**
+- `extension/popup.html` - Added settings button and panel
+- `extension/popup.js` - Added settings UI logic
+- `extension/background.js` - Added settings management
 
-#### Phase 2: Voice Compatibility Detection
+#### Phase 2: Enhanced Settings Infrastructure
+**Goal**: Revamp settings for individual toggle controls and independent styling
+
+**What we'll build:**
+- **Individual Toggle Controls**: Each mode (Full/Sentence/Word) can be enabled/disabled independently
+- **Independent Style Configuration**: Each mode has its own color, opacity, and style settings
+- **Layered Highlighting Support**: Multiple modes can be active simultaneously
+- **Enhanced Settings Schema**: Support for per-mode configuration
+- **Improved Settings UI**: Expandable sections for each highlighting mode
+
+**Files to modify:**
+- `extension/background.js` - Update settings schema and storage
+- `extension/popup.html` - Redesign settings panel with individual controls
+- `extension/popup.js` - Add per-mode settings logic
+- `extension/controlbar.js` - Prepare for layered highlighting
+
+#### Phase 3: Voice Compatibility Detection
 **Goal**: Detect which highlighting modes work with current voice
 
 **What we'll build:**
 - Voice capability detection system
 - Compatibility indicators in settings panel
 - Graceful fallback to supported modes
+- Per-mode compatibility status
 
 **Files to modify:**
 - `extension/background.js` - Add voice analysis
 - `extension/popup.js` - Add compatibility UI
 
-#### Phase 3: Sentence Highlighting
+#### Phase 4: Sentence Highlighting
 **Goal**: Implement sentence-by-sentence highlighting
 
 **What we'll build:**
 - Sentence boundary detection
 - Sentence event handling from TTS API
 - Sentence-level DOM manipulation in TextHighlighter
+- Independent sentence highlighting styling
 
 **Files to modify:**
 - `extension/controlbar.js` - Extend TextHighlighter class
 - `extension/background.js` - Add sentence event handling
 
-#### Phase 4: Word-by-Word Highlighting
+#### Phase 5: Word-by-Word Highlighting
 **Goal**: Implement word-by-word highlighting
 
 **What we'll build:**
 - Word boundary detection
 - Word event handling from TTS API
 - Word-level DOM manipulation with transitions
+- Independent word highlighting styling
 
 **Files to modify:**
 - `extension/controlbar.js` - Add word highlighting methods
 - `extension/background.js` - Add word event handling
 
-#### Phase 5: Advanced Features
-**Goal**: Add polish and customization
+#### Phase 6: Advanced Features
+**Goal**: Add polish and layered highlighting
 
 **What we'll build:**
-- Style customization (color picker, opacity controls)
+- Layered highlighting rendering (multiple modes simultaneously)
 - Auto-scroll to keep highlights visible
 - Smooth transitions and animations
+- Advanced styling options per mode
 
 **Files to modify:**
-- `extension/popup.html` - Add style controls
-- `extension/controlbar.js` - Add auto-scroll logic
+- `extension/controlbar.js` - Add layered highlighting and auto-scroll
+- `extension/popup.html` - Add advanced style controls
 
 ### Settings UI Design
 
@@ -160,34 +185,91 @@ Implement three configurable highlighting modes during TTS playback:
 - Text input area
 - Speed slider
 - Speak/Stop buttons
-- **NEW: Settings button (⚙️ icon)**
+- **Settings button (⚙️ icon)**
 
-#### Settings Panel (toggleable)
-- **Highlighting Mode**: Radio buttons (Full Selection, Sentence, Word-by-Word)
-- **Style Options**: Color picker, opacity slider
-- **Auto-scroll**: Toggle switch
-- **Voice Compatibility**: Status indicators
+#### Settings Panel (redesigned)
+- **Header**: "Highlighting Settings" with close button
+- **Full Selection Highlighting Section**:
+  - Toggle switch to enable/disable
+  - Color picker for background color
+  - Opacity slider
+  - Style options (border, underline, etc.)
+- **Sentence Highlighting Section**:
+  - Toggle switch to enable/disable
+  - Color picker for background color
+  - Opacity slider
+  - Style options
+  - Compatibility indicator
+- **Word Highlighting Section**:
+  - Toggle switch to enable/disable
+  - Color picker for background color
+  - Opacity slider
+  - Style options
+  - Compatibility indicator
+- **Global Options**:
+  - Auto-scroll toggle
+  - Animation effects toggle
 - **Close button**: Return to main interface
 
 ### Implementation Priority
 
 #### High Priority (MVP)
 1. ✅ Full Selection Highlighting (done)
-2. Settings Infrastructure
-3. Sentence Highlighting
+2. ✅ Settings Infrastructure (done)
+3. Enhanced Settings Infrastructure (individual toggles + independent styling)
 4. Voice Compatibility Detection
+5. Sentence Highlighting
 
 #### Medium Priority
-5. Word-by-Word Highlighting
-6. Style Customization
+6. Word-by-Word Highlighting
+7. Layered Highlighting Support
 
 #### Low Priority (Polish)
-7. Auto-scroll Feature
-8. Advanced Animations
+8. Auto-scroll Feature
+9. Advanced Animations and Effects
+
+### Enhanced Settings Schema
+```javascript
+{
+  fullSelection: {
+    enabled: true,
+    style: {
+      backgroundColor: '#ffeb3b',
+      textColor: '#000000',
+      opacity: 0.8,
+      borderStyle: 'none'
+    }
+  },
+  sentence: {
+    enabled: false,
+    style: {
+      backgroundColor: '#4caf50',
+      textColor: '#ffffff',
+      opacity: 0.7,
+      borderStyle: 'solid'
+    }
+  },
+  word: {
+    enabled: false,
+    style: {
+      backgroundColor: '#2196f3',
+      textColor: '#ffffff',
+      opacity: 0.9,
+      borderStyle: 'dashed'
+    }
+  },
+  global: {
+    autoScroll: true,
+    animationEffects: true
+  }
+}
+```
 
 ### Success Criteria
 - Settings accessible via button in popup
-- Three highlighting modes work correctly
-- Voice compatibility properly detected
+- Each highlighting mode can be toggled independently
+- Each mode has its own style configuration
+- Multiple modes can work simultaneously (layered highlighting)
+- Voice compatibility properly detected per mode
 - Settings persist across sessions
 - Backwards compatibility maintained
