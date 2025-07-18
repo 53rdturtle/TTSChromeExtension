@@ -6,7 +6,8 @@ let globalTTSState = {
   isPaused: false,
   showControlBar: false,
   controlBarPosition: { x: 20, y: null, bottom: 20 }, // Default position
-  controlBarSize: { width: 200, height: 'auto' }
+  controlBarSize: { width: 200, height: 'auto' },
+  originatingTabId: null // Track which tab started the TTS
 };
 
 // Function to broadcast control bar state to all tabs
@@ -145,6 +146,8 @@ class TTSService {
             // Send message to content script to highlight text
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
               if (tabs[0]) {
+                // Store the originating tab ID
+                globalTTSState.originatingTabId = tabs[0].id;
                 chrome.tabs.sendMessage(tabs[0].id, {
                   type: 'highlightText',
                   text: text,
@@ -163,17 +166,22 @@ class TTSService {
             globalTTSState.isSpeaking = false;
             globalTTSState.isPaused = false;
             globalTTSState.showControlBar = false;
+            globalTTSState.originatingTabId = null;
             
             console.log('Global TTS state after end:', globalTTSState);
             
-            // Send message to content script to remove highlights
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-              if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                  type: 'highlightText',
-                  action: 'end'
-                });
-              }
+            // Send message to ALL tabs to remove highlights
+            chrome.tabs.query({}, (tabs) => {
+              tabs.forEach(tab => {
+                if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:'))) {
+                  chrome.tabs.sendMessage(tab.id, {
+                    type: 'highlightText',
+                    action: 'end'
+                  }).catch(() => {
+                    // Ignore errors for tabs without content scripts
+                  });
+                }
+              });
             });
             // Broadcast control bar hide to all tabs
             console.log('Broadcasting control bar hide after TTS end');
@@ -501,6 +509,8 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
               // Send message to content script to highlight text
               chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs[0]) {
+                  // Store the originating tab ID
+                  globalTTSState.originatingTabId = tabs[0].id;
                   chrome.tabs.sendMessage(tabs[0].id, {
                     type: 'highlightText',
                     text: selectedText,
@@ -519,17 +529,22 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
               globalTTSState.isSpeaking = false;
               globalTTSState.isPaused = false;
               globalTTSState.showControlBar = false;
+              globalTTSState.originatingTabId = null;
               
               console.log('Global TTS state after keyboard end:', globalTTSState);
               
-              // Send message to content script to remove highlights
-              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                  chrome.tabs.sendMessage(tabs[0].id, {
-                    type: 'highlightText',
-                    action: 'end'
-                  });
-                }
+              // Send message to ALL tabs to remove highlights
+              chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                  if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:'))) {
+                    chrome.tabs.sendMessage(tab.id, {
+                      type: 'highlightText',
+                      action: 'end'
+                    }).catch(() => {
+                      // Ignore errors for tabs without content scripts
+                    });
+                  }
+                });
               });
               // Broadcast control bar hide to all tabs
               console.log('Broadcasting control bar hide after keyboard TTS end');

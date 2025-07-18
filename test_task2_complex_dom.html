@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 2: Complex DOM Structure Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .nested-content {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .inline-elements {
+            color: #333;
+        }
+        .complex-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .complex-table th, .complex-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .status-passed { color: green; font-weight: bold; }
+        .status-failed { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Task 2: Complex DOM Structure Highlighting Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Nested HTML Elements</h2>
+        <div class="nested-content">
+            <p>This paragraph contains <strong>bold text</strong>, <em>italic text</em>, and <u>underlined text</u>. The highlighting should work seamlessly across all these <span class="inline-elements">nested inline elements</span> without breaking the DOM structure.</p>
+        </div>
+        <div class="status" id="test1-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Links and Interactive Elements</h2>
+        <p>This text contains <a href="#" onclick="return false;">clickable links</a>, <button type="button">buttons</button>, and <input type="text" value="form elements" readonly>. Highlighting should preserve all interactive functionality.</p>
+        <div class="status" id="test2-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Cross-Element Text Selection</h2>
+        <div class="nested-content">
+            <p>Start selecting from this paragraph</p>
+            <p>and continue the selection across multiple paragraphs</p>
+            <p>to test complex range highlighting.</p>
+        </div>
+        <div class="status" id="test3-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Table Content</h2>
+        <table class="complex-table">
+            <thead>
+                <tr>
+                    <th>Column 1</th>
+                    <th>Column 2</th>
+                    <th>Column 3</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Cell data that can be selected</td>
+                    <td>across multiple table cells</td>
+                    <td>for complex highlighting tests</td>
+                </tr>
+                <tr>
+                    <td>Second row with more</td>
+                    <td>text content for testing</td>
+                    <td>table highlighting behavior</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="status" id="test4-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 5: List Structures</h2>
+        <ul>
+            <li>First list item with some text</li>
+            <li>Second list item with <strong>nested formatting</strong></li>
+            <li>Third list item with <a href="#">embedded links</a></li>
+        </ul>
+        <ol>
+            <li>Ordered list item one</li>
+            <li>Ordered list item two with <em>emphasis</em></li>
+            <li>Ordered list item three</li>
+        </ol>
+        <div class="status" id="test5-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 6: Deeply Nested Elements</h2>
+        <div class="nested-content">
+            <div>
+                <p>This is a <span>deeply <strong>nested <em>structure <u>with multiple</u> levels</em> of</strong> HTML</span> elements to test the TreeWalker implementation.</p>
+            </div>
+        </div>
+        <div class="status" id="test6-status">Status: <span class="status-failed">Not Tested</span></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Select text from any of the test sections above</li>
+            <li>Press <strong>Ctrl+Q</strong> to start TTS</li>
+            <li>Verify that the selected text is highlighted with yellow background</li>
+            <li>Check that the highlight preserves the original DOM structure</li>
+            <li>Verify that interactive elements (links, buttons) still work</li>
+            <li>Ensure no text positioning or layout shifts occur</li>
+            <li>Test cross-element selections (spanning multiple paragraphs, table cells, etc.)</li>
+        </ol>
+        
+        <h3>Expected Behavior:</h3>
+        <ul>
+            <li>✅ Text highlights with yellow background</li>
+            <li>✅ No layout shifts or text movement</li>
+            <li>✅ Interactive elements remain functional</li>
+            <li>✅ Complex DOM structures are preserved</li>
+            <li>✅ Cross-element selections work correctly</li>
+            <li>✅ Highlights clean up completely when TTS ends</li>
+        </ul>
+    </div>
+    
+    <script>
+        // Test helper functions
+        function markTestPassed(testId) {
+            const statusElement = document.getElementById(testId + '-status');
+            const statusSpan = statusElement.querySelector('span');
+            statusSpan.textContent = 'Passed';
+            statusSpan.className = 'status-passed';
+        }
+        
+        function markTestFailed(testId) {
+            const statusElement = document.getElementById(testId + '-status');
+            const statusSpan = statusElement.querySelector('span');
+            statusSpan.textContent = 'Failed';
+            statusSpan.className = 'status-failed';
+        }
+        
+        // Add event listeners to test interactive elements
+        document.addEventListener('DOMContentLoaded', function() {
+            const buttons = document.querySelectorAll('button[type="button"]');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    alert('Button clicked - interactivity preserved!');
+                });
+            });
+        });
+        
+        console.log('Task 2 Complex DOM Test Page Loaded');
+        console.log('Select text from any test section and press Ctrl+Q to test highlighting');
+    </script>
+</body>
+</html>

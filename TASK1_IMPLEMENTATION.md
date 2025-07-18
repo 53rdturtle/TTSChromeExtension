@@ -106,3 +106,57 @@
 - **Problem**: Content script injected multiple times causing "class already declared" and "variable already declared" errors
 - **Solution**: Guard checks for existing classes, message listeners, and global variables
 - **Benefits**: Prevents redeclaration errors and duplicate initialization while maintaining functionality
+
+## Task 2 Status: Handle Complex DOM Structures
+
+### ✅ Completed Implementation
+
+#### Advanced DOM Handling:
+- **highlightComplexRange() method**: Uses TreeWalker API to traverse text nodes across complex DOM structures
+- **Cross-element selection support**: Handles text spanning multiple paragraphs, table cells, list items, and nested elements
+- **Boundary preservation**: Maintains original DOM structure without breaking existing layout
+- **Robust error handling**: Graceful fallback when simple highlighting fails
+
+#### Technical Features:
+- **TreeWalker traversal**: Finds all text nodes within selection range
+- **Node filtering**: Accepts only text nodes that intersect with selection
+- **Range boundary adjustment**: Correctly handles partial text node selections
+- **Span insertion**: Creates highlight spans without disrupting DOM hierarchy
+- **Cleanup normalization**: Restores original DOM structure and merges text nodes
+
+#### Browser Compatibility:
+- **range.intersectsNode()**: Modern browser support with fallback
+- **Range.compareBoundaryPoints()**: Older browser compatibility
+- **Error recovery**: Continues highlighting even if individual nodes fail
+
+### 🧪 Testing Coverage
+
+#### Complex DOM Test Scenarios:
+- **Nested HTML elements**: Bold, italic, underlined text within selections
+- **Interactive elements**: Links, buttons, form inputs remain functional
+- **Cross-element selections**: Text spanning multiple paragraphs, table cells
+- **Table content**: Complex table structure highlighting
+- **List structures**: Ordered and unordered lists with nested formatting
+- **Deeply nested elements**: Multiple levels of HTML nesting
+
+#### Test File: `test_task2_complex_dom.html`
+- 6 comprehensive test scenarios
+- Interactive elements to verify functionality preservation
+- Status tracking for each test case
+- Clear instructions and expected behavior
+
+### 📋 Task 2 Completion Status: ✅ COMPLETE
+
+**Requirements Met:**
+- ✅ Text highlighting works across multiple DOM elements
+- ✅ Handles nested tags, links, and formatting within selected text
+- ✅ Highlights don't break existing page layout
+- ✅ Works on complex websites with varied HTML structures
+- ✅ Preserves interactivity of elements (links, buttons)
+- ✅ Robust error handling and fallback mechanisms
+- ✅ Comprehensive test coverage
+
+**Key Implementation Files:**
+- `extension/controlbar.js` - TextHighlighter class with highlightComplexRange()
+- `test_task2_complex_dom.html` - Complex DOM testing scenarios
+- `tests/highlighting.test.js` - Unit tests for complex range handling

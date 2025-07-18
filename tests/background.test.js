@@ -406,6 +406,19 @@ describe('MessageHandler', () => {
       const testText = 'Test text for highlighting';
       let onEventCallback;
 
+      // Mock tabs.query to return all tabs for broadcasting
+      const mockTabs = [{ id: 1, url: 'https://example.com' }, { id: 2, url: 'https://test.com' }];
+      chrome.tabs.query = jest.fn((query, callback) => {
+        if (query.active && query.currentWindow) {
+          callback([{ id: 1, url: 'https://example.com' }]);
+        } else {
+          callback(mockTabs);
+        }
+      });
+      
+      // Ensure sendMessage returns a Promise
+      chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
+
       chrome.tts.speak = jest.fn((text, options, callback) => {
         onEventCallback = options.onEvent;
         callback();
@@ -416,7 +429,12 @@ describe('MessageHandler', () => {
       // Simulate TTS end event
       onEventCallback({ type: 'end' });
 
+      // Should broadcast to all tabs, not just active tab
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'highlightText',
         action: 'end'
       });
@@ -425,6 +443,19 @@ describe('MessageHandler', () => {
     test('should send highlight end message on TTS error event', async () => {
       const testText = 'Test text for highlighting';
       let onEventCallback;
+
+      // Mock tabs.query to return all tabs for broadcasting
+      const mockTabs = [{ id: 1, url: 'https://example.com' }, { id: 2, url: 'https://test.com' }];
+      chrome.tabs.query = jest.fn((query, callback) => {
+        if (query.active && query.currentWindow) {
+          callback([{ id: 1, url: 'https://example.com' }]);
+        } else {
+          callback(mockTabs);
+        }
+      });
+      
+      // Ensure sendMessage returns a Promise
+      chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
 
       chrome.tts.speak = jest.fn((text, options, callback) => {
         onEventCallback = options.onEvent;
@@ -436,7 +467,12 @@ describe('MessageHandler', () => {
       // Simulate TTS error event
       onEventCallback({ type: 'error' });
 
+      // Should broadcast to all tabs
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'highlightText',
         action: 'end'
       });
@@ -445,6 +481,19 @@ describe('MessageHandler', () => {
     test('should send highlight end message on TTS interrupted event', async () => {
       const testText = 'Test text for highlighting';
       let onEventCallback;
+
+      // Mock tabs.query to return all tabs for broadcasting
+      const mockTabs = [{ id: 1, url: 'https://example.com' }, { id: 2, url: 'https://test.com' }];
+      chrome.tabs.query = jest.fn((query, callback) => {
+        if (query.active && query.currentWindow) {
+          callback([{ id: 1, url: 'https://example.com' }]);
+        } else {
+          callback(mockTabs);
+        }
+      });
+      
+      // Ensure sendMessage returns a Promise
+      chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
 
       chrome.tts.speak = jest.fn((text, options, callback) => {
         onEventCallback = options.onEvent;
@@ -456,7 +505,12 @@ describe('MessageHandler', () => {
       // Simulate TTS interrupted event
       onEventCallback({ type: 'interrupted' });
 
+      // Should broadcast to all tabs
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'highlightText',
         action: 'end'
       });
@@ -465,6 +519,19 @@ describe('MessageHandler', () => {
     test('should send highlight end message on TTS cancelled event', async () => {
       const testText = 'Test text for highlighting';
       let onEventCallback;
+
+      // Mock tabs.query to return all tabs for broadcasting
+      const mockTabs = [{ id: 1, url: 'https://example.com' }, { id: 2, url: 'https://test.com' }];
+      chrome.tabs.query = jest.fn((query, callback) => {
+        if (query.active && query.currentWindow) {
+          callback([{ id: 1, url: 'https://example.com' }]);
+        } else {
+          callback(mockTabs);
+        }
+      });
+      
+      // Ensure sendMessage returns a Promise
+      chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
 
       chrome.tts.speak = jest.fn((text, options, callback) => {
         onEventCallback = options.onEvent;
@@ -476,7 +543,12 @@ describe('MessageHandler', () => {
       // Simulate TTS cancelled event
       onEventCallback({ type: 'cancelled' });
 
+      // Should broadcast to all tabs
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'highlightText',
+        action: 'end'
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'highlightText',
         action: 'end'
       });

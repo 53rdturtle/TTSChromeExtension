@@ -10,7 +10,7 @@ global.chrome = {
   },
   tabs: {
     query: jest.fn(),
-    sendMessage: jest.fn(),
+    sendMessage: jest.fn(() => Promise.resolve()),
     onActivated: {
       addListener: jest.fn()
     },
@@ -109,4 +109,7 @@ global.console = {
 beforeEach(() => {
   jest.clearAllMocks();
   chrome.runtime.lastError = null;
+  
+  // Ensure sendMessage always returns a Promise
+  chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
 });
