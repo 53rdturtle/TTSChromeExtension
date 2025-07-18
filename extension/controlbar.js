@@ -7,6 +7,14 @@ class TextHighlighter {
   constructor() {
     this.highlightedElements = [];
     this.originalSelection = null;
+    
+    // TODO: Prepare for layered highlighting support
+    // Will need to track multiple highlight layers by mode:
+    // this.highlightLayers = {
+    //   fullSelection: [],
+    //   sentence: [],
+    //   word: []
+    // };
   }
 
   // Highlight the selected text

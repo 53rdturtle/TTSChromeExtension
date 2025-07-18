@@ -58,14 +58,23 @@ describe('TTSController', () => {
       settingsBtn: createMockElement('settingsBtn', 'button'),
       settingsPanel: createMockElement('settingsPanel', 'div'),
       closeSettingsBtn: createMockElement('closeSettingsBtn', 'button'),
-      modeFullSelection: createMockElement('modeFullSelection', 'radio'),
-      modeSentence: createMockElement('modeSentence', 'radio'),
-      modeWord: createMockElement('modeWord', 'radio'),
-      highlightColor: createMockElement('highlightColor', 'color'),
-      highlightOpacity: createMockElement('highlightOpacity', 'range'),
-      opacityValue: createMockElement('opacityValue', 'span'),
+      // Enhanced per-mode settings elements
+      fullSelectionToggle: createMockElement('fullSelectionToggle', 'checkbox'),
+      fullSelectionColor: createMockElement('fullSelectionColor', 'color'),
+      fullSelectionOpacity: createMockElement('fullSelectionOpacity', 'range'),
+      fullSelectionOpacityValue: createMockElement('fullSelectionOpacityValue', 'span'),
+      sentenceToggle: createMockElement('sentenceToggle', 'checkbox'),
+      sentenceColor: createMockElement('sentenceColor', 'color'),
+      sentenceOpacity: createMockElement('sentenceOpacity', 'range'),
+      sentenceOpacityValue: createMockElement('sentenceOpacityValue', 'span'),
+      sentenceCompatibility: createMockElement('sentenceCompatibility', 'div'),
+      wordToggle: createMockElement('wordToggle', 'checkbox'),
+      wordColor: createMockElement('wordColor', 'color'),
+      wordOpacity: createMockElement('wordOpacity', 'range'),
+      wordOpacityValue: createMockElement('wordOpacityValue', 'span'),
+      wordCompatibility: createMockElement('wordCompatibility', 'div'),
       autoScrollToggle: createMockElement('autoScrollToggle', 'checkbox'),
-      highlightingToggle: createMockElement('highlightingToggle', 'checkbox')
+      animationToggle: createMockElement('animationToggle', 'checkbox')
     };
 
     // Mock document.getElementById
@@ -93,7 +102,15 @@ describe('TTSController', () => {
     // Mock chrome.runtime.sendMessage for settings
     chrome.runtime.sendMessage.mockImplementation((message, callback) => {
       if (message.type === 'getHighlightingSettings') {
-        callback({ status: 'success', settings: { mode: 'full', enabled: true } });
+        callback({ 
+          status: 'success', 
+          settings: { 
+            fullSelection: { enabled: true, style: { backgroundColor: '#ffeb3b', opacity: 0.8 } },
+            sentence: { enabled: false, style: { backgroundColor: '#4caf50', opacity: 0.7 } },
+            word: { enabled: false, style: { backgroundColor: '#2196f3', opacity: 0.9 } },
+            global: { autoScroll: true, animationEffects: true }
+          } 
+        });
       } else if (message.type === 'saveHighlightingSettings') {
         callback({ status: 'success' });
       } else if (message.type === 'getVoices') {

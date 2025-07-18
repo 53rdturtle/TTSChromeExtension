@@ -32,14 +32,26 @@ class TTSController {
       settingsBtn: document.getElementById('settingsBtn'),
       settingsPanel: document.getElementById('settingsPanel'),
       closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-      modeFullSelection: document.getElementById('modeFullSelection'),
-      modeSentence: document.getElementById('modeSentence'),
-      modeWord: document.getElementById('modeWord'),
-      highlightColor: document.getElementById('highlightColor'),
-      highlightOpacity: document.getElementById('highlightOpacity'),
-      opacityValue: document.getElementById('opacityValue'),
+      // Full Selection elements
+      fullSelectionToggle: document.getElementById('fullSelectionToggle'),
+      fullSelectionColor: document.getElementById('fullSelectionColor'),
+      fullSelectionOpacity: document.getElementById('fullSelectionOpacity'),
+      fullSelectionOpacityValue: document.getElementById('fullSelectionOpacityValue'),
+      // Sentence elements
+      sentenceToggle: document.getElementById('sentenceToggle'),
+      sentenceColor: document.getElementById('sentenceColor'),
+      sentenceOpacity: document.getElementById('sentenceOpacity'),
+      sentenceOpacityValue: document.getElementById('sentenceOpacityValue'),
+      sentenceCompatibility: document.getElementById('sentenceCompatibility'),
+      // Word elements
+      wordToggle: document.getElementById('wordToggle'),
+      wordColor: document.getElementById('wordColor'),
+      wordOpacity: document.getElementById('wordOpacity'),
+      wordOpacityValue: document.getElementById('wordOpacityValue'),
+      wordCompatibility: document.getElementById('wordCompatibility'),
+      // Global elements
       autoScrollToggle: document.getElementById('autoScrollToggle'),
-      highlightingToggle: document.getElementById('highlightingToggle')
+      animationToggle: document.getElementById('animationToggle')
     };
     
     console.log('Elements found:', {
@@ -68,16 +80,28 @@ class TTSController {
     // Settings events
     this.elements.settingsBtn.addEventListener('click', () => this.showSettings());
     this.elements.closeSettingsBtn.addEventListener('click', () => this.hideSettings());
-    this.elements.highlightOpacity.addEventListener('input', () => this.updateOpacityValue());
     
-    // Settings change events
-    this.elements.modeFullSelection.addEventListener('change', () => this.saveSettings());
-    this.elements.modeSentence.addEventListener('change', () => this.saveSettings());
-    this.elements.modeWord.addEventListener('change', () => this.saveSettings());
-    this.elements.highlightColor.addEventListener('change', () => this.saveSettings());
-    this.elements.highlightOpacity.addEventListener('change', () => this.saveSettings());
+    // Full Selection events
+    this.elements.fullSelectionToggle.addEventListener('change', () => this.saveSettings());
+    this.elements.fullSelectionColor.addEventListener('change', () => this.saveSettings());
+    this.elements.fullSelectionOpacity.addEventListener('input', () => this.updateOpacityValue('fullSelection'));
+    this.elements.fullSelectionOpacity.addEventListener('change', () => this.saveSettings());
+    
+    // Sentence events
+    this.elements.sentenceToggle.addEventListener('change', () => this.saveSettings());
+    this.elements.sentenceColor.addEventListener('change', () => this.saveSettings());
+    this.elements.sentenceOpacity.addEventListener('input', () => this.updateOpacityValue('sentence'));
+    this.elements.sentenceOpacity.addEventListener('change', () => this.saveSettings());
+    
+    // Word events
+    this.elements.wordToggle.addEventListener('change', () => this.saveSettings());
+    this.elements.wordColor.addEventListener('change', () => this.saveSettings());
+    this.elements.wordOpacity.addEventListener('input', () => this.updateOpacityValue('word'));
+    this.elements.wordOpacity.addEventListener('change', () => this.saveSettings());
+    
+    // Global events
     this.elements.autoScrollToggle.addEventListener('change', () => this.saveSettings());
-    this.elements.highlightingToggle.addEventListener('change', () => this.saveSettings());
+    this.elements.animationToggle.addEventListener('change', () => this.saveSettings());
   }
 
   // Load saved data from storage, but prefer selected text from the active tab if available
@@ -371,18 +395,28 @@ class TTSController {
   showSettings() {
     console.log('Showing settings panel');
     this.elements.settingsPanel.classList.add('active');
+    document.body.classList.add('settings-open');
   }
 
   // Hide settings panel
   hideSettings() {
     console.log('Hiding settings panel');
     this.elements.settingsPanel.classList.remove('active');
+    document.body.classList.remove('settings-open');
   }
 
   // Update opacity value display
-  updateOpacityValue() {
-    const opacity = this.elements.highlightOpacity.value;
-    this.elements.opacityValue.textContent = opacity;
+  updateOpacityValue(mode) {
+    if (mode === 'fullSelection') {
+      const opacity = this.elements.fullSelectionOpacity.value;
+      this.elements.fullSelectionOpacityValue.textContent = opacity;
+    } else if (mode === 'sentence') {
+      const opacity = this.elements.sentenceOpacity.value;
+      this.elements.sentenceOpacityValue.textContent = opacity;
+    } else if (mode === 'word') {
+      const opacity = this.elements.wordOpacity.value;
+      this.elements.wordOpacityValue.textContent = opacity;
+    }
   }
 
   // Load highlighting settings from storage
@@ -402,25 +436,41 @@ class TTSController {
   applySettingsToUI(settings) {
     console.log('Applying settings to UI:', settings);
     
-    // Set highlighting mode
-    if (settings.mode === 'full') {
-      this.elements.modeFullSelection.checked = true;
-    } else if (settings.mode === 'sentence') {
-      this.elements.modeSentence.checked = true;
-    } else if (settings.mode === 'word') {
-      this.elements.modeWord.checked = true;
+    // Full Selection settings
+    if (settings.fullSelection) {
+      this.elements.fullSelectionToggle.checked = settings.fullSelection.enabled !== false;
+      if (settings.fullSelection.style) {
+        this.elements.fullSelectionColor.value = settings.fullSelection.style.backgroundColor || '#ffeb3b';
+        this.elements.fullSelectionOpacity.value = settings.fullSelection.style.opacity || 0.8;
+        this.elements.fullSelectionOpacityValue.textContent = settings.fullSelection.style.opacity || 0.8;
+      }
     }
 
-    // Set style options
-    if (settings.style) {
-      this.elements.highlightColor.value = settings.style.backgroundColor || '#ffeb3b';
-      this.elements.highlightOpacity.value = settings.style.opacity || 0.8;
-      this.elements.opacityValue.textContent = settings.style.opacity || 0.8;
+    // Sentence settings
+    if (settings.sentence) {
+      this.elements.sentenceToggle.checked = settings.sentence.enabled === true;
+      if (settings.sentence.style) {
+        this.elements.sentenceColor.value = settings.sentence.style.backgroundColor || '#4caf50';
+        this.elements.sentenceOpacity.value = settings.sentence.style.opacity || 0.7;
+        this.elements.sentenceOpacityValue.textContent = settings.sentence.style.opacity || 0.7;
+      }
     }
 
-    // Set toggles
-    this.elements.autoScrollToggle.checked = settings.autoScroll !== false;
-    this.elements.highlightingToggle.checked = settings.enabled !== false;
+    // Word settings
+    if (settings.word) {
+      this.elements.wordToggle.checked = settings.word.enabled === true;
+      if (settings.word.style) {
+        this.elements.wordColor.value = settings.word.style.backgroundColor || '#2196f3';
+        this.elements.wordOpacity.value = settings.word.style.opacity || 0.9;
+        this.elements.wordOpacityValue.textContent = settings.word.style.opacity || 0.9;
+      }
+    }
+
+    // Global settings
+    if (settings.global) {
+      this.elements.autoScrollToggle.checked = settings.global.autoScroll !== false;
+      this.elements.animationToggle.checked = settings.global.animationEffects !== false;
+    }
   }
 
   // Save settings to storage
@@ -429,16 +479,37 @@ class TTSController {
     
     // Get current settings from UI
     const settings = {
-      mode: this.getSelectedMode(),
-      enabled: this.elements.highlightingToggle.checked,
-      style: {
-        backgroundColor: this.elements.highlightColor.value,
-        opacity: parseFloat(this.elements.highlightOpacity.value),
-        textColor: '#000000',
-        borderStyle: 'none'
+      fullSelection: {
+        enabled: this.elements.fullSelectionToggle.checked,
+        style: {
+          backgroundColor: this.elements.fullSelectionColor.value,
+          textColor: '#000000',
+          opacity: parseFloat(this.elements.fullSelectionOpacity.value),
+          borderStyle: 'none'
+        }
       },
-      autoScroll: this.elements.autoScrollToggle.checked,
-      animationEffects: true
+      sentence: {
+        enabled: this.elements.sentenceToggle.checked,
+        style: {
+          backgroundColor: this.elements.sentenceColor.value,
+          textColor: '#ffffff',
+          opacity: parseFloat(this.elements.sentenceOpacity.value),
+          borderStyle: 'solid'
+        }
+      },
+      word: {
+        enabled: this.elements.wordToggle.checked,
+        style: {
+          backgroundColor: this.elements.wordColor.value,
+          textColor: '#ffffff',
+          opacity: parseFloat(this.elements.wordOpacity.value),
+          borderStyle: 'dashed'
+        }
+      },
+      global: {
+        autoScroll: this.elements.autoScrollToggle.checked,
+        animationEffects: this.elements.animationToggle.checked
+      }
     };
 
     console.log('Settings to save:', settings);
@@ -454,18 +525,6 @@ class TTSController {
         this.showError('Failed to save settings: ' + (response?.error || 'Unknown error'));
       }
     });
-  }
-
-  // Get selected highlighting mode
-  getSelectedMode() {
-    if (this.elements.modeFullSelection.checked) {
-      return 'full';
-    } else if (this.elements.modeSentence.checked) {
-      return 'sentence';
-    } else if (this.elements.modeWord.checked) {
-      return 'word';
-    }
-    return 'full'; // Default fallback
   }
 }
 

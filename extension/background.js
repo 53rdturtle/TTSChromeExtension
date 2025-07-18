@@ -1,17 +1,38 @@
 // Background service worker for TTS Chrome Extension
 
-// Default highlighting settings
+// Default highlighting settings - Enhanced per-mode configuration
 const DEFAULT_HIGHLIGHTING_SETTINGS = {
-  mode: 'full', // 'full', 'sentence', 'word'
-  enabled: true,
-  style: {
-    backgroundColor: '#ffeb3b',
-    textColor: '#000000',
-    opacity: 0.8,
-    borderStyle: 'none'
+  fullSelection: {
+    enabled: true,
+    style: {
+      backgroundColor: '#ffeb3b',
+      textColor: '#000000',
+      opacity: 0.8,
+      borderStyle: 'none'
+    }
   },
-  autoScroll: true,
-  animationEffects: true
+  sentence: {
+    enabled: false,
+    style: {
+      backgroundColor: '#4caf50',
+      textColor: '#ffffff',
+      opacity: 0.7,
+      borderStyle: 'solid'
+    }
+  },
+  word: {
+    enabled: false,
+    style: {
+      backgroundColor: '#2196f3',
+      textColor: '#ffffff',
+      opacity: 0.9,
+      borderStyle: 'dashed'
+    }
+  },
+  global: {
+    autoScroll: true,
+    animationEffects: true
+  }
 };
 
 // Global TTS state for cross-tab persistence
@@ -788,14 +809,27 @@ async function saveHighlightingSettings(settings) {
       return;
     }
 
-    // Validate mode
-    if (settings.mode && !['full', 'sentence', 'word'].includes(settings.mode)) {
-      reject(new Error('Invalid highlighting mode'));
+    // Validate per-mode settings structure
+    const validModes = ['fullSelection', 'sentence', 'word'];
+    for (const mode of validModes) {
+      if (settings[mode] && typeof settings[mode] !== 'object') {
+        reject(new Error(`Invalid ${mode} settings object`));
+        return;
+      }
+      if (settings[mode] && settings[mode].style && typeof settings[mode].style !== 'object') {
+        reject(new Error(`Invalid ${mode} style settings object`));
+        return;
+      }
+    }
+
+    // Validate global settings
+    if (settings.global && typeof settings.global !== 'object') {
+      reject(new Error('Invalid global settings object'));
       return;
     }
 
-    // Merge with existing settings and defaults
-    const mergedSettings = { ...DEFAULT_HIGHLIGHTING_SETTINGS, ...settings };
+    // Deep merge with existing settings and defaults
+    const mergedSettings = deepMerge(DEFAULT_HIGHLIGHTING_SETTINGS, settings);
 
     chrome.storage.sync.set({ highlightingSettings: mergedSettings }, () => {
       if (chrome.runtime.lastError) {
@@ -805,6 +839,21 @@ async function saveHighlightingSettings(settings) {
       }
     });
   });
+}
+
+// Helper function for deep merging objects
+function deepMerge(target, source) {
+  const result = { ...target };
+  
+  for (const key in source) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(result[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  
+  return result;
 }
 
 // Initialize default settings on extension startup
