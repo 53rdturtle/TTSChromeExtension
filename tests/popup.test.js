@@ -94,8 +94,8 @@ describe('TTSController', () => {
     // Mock chrome.tts.getVoices
     chrome.tts.getVoices.mockImplementation((callback) => {
       callback([
-        { voiceName: 'Voice 1', lang: 'en-US' },
-        { voiceName: 'Voice 2', lang: 'en-GB' }
+        { voiceName: 'Voice 1', lang: 'en-US', eventTypes: ['start', 'end', 'word'] },
+        { voiceName: 'Voice 2', lang: 'en-GB', eventTypes: ['start', 'end', 'sentence'] }
       ]);
     });
 
@@ -117,8 +117,8 @@ describe('TTSController', () => {
         callback({ 
           status: 'success', 
           voices: [
-            { voiceName: 'Voice 1', lang: 'en-US' },
-            { voiceName: 'Voice 2', lang: 'en-GB' }
+            { voiceName: 'Voice 1', lang: 'en-US', eventTypes: ['start', 'end', 'word'] },
+            { voiceName: 'Voice 2', lang: 'en-GB', eventTypes: ['start', 'end', 'sentence'] }
           ] 
         });
       } else {
@@ -153,10 +153,10 @@ describe('TTSController', () => {
   });
 
   describe('populateVoices', () => {
-    test('should populate voice select with available voices', async () => {
+    test('should populate voice select with available voices and compatibility indicators', async () => {
       const voices = [
-        { voiceName: 'Voice 1', lang: 'en-US' },
-        { voiceName: 'Voice 2', lang: 'en-GB' }
+        { voiceName: 'Voice 1', lang: 'en-US', eventTypes: ['start', 'end', 'word'] },
+        { voiceName: 'Voice 2', lang: 'en-GB', eventTypes: ['start', 'end', 'sentence'] }
       ];
 
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
@@ -176,6 +176,9 @@ describe('TTSController', () => {
         expect.any(Function)
       );
       expect(mockElements.voiceSelect.appendChild).toHaveBeenCalledTimes(4);
+      
+      // Check that voices are stored for compatibility checking
+      expect(controller.availableVoices).toEqual(voices);
     });
 
     test('should handle empty voices array', async () => {
@@ -446,6 +449,43 @@ describe('TTSController', () => {
       );
       
       jest.useRealTimers();
+    });
+  });
+
+  describe('voice compatibility', () => {
+    test('should correctly detect voice compatibility', () => {
+      const voiceWithWord = { voiceName: 'Voice 1', lang: 'en-US', eventTypes: ['start', 'end', 'word'] };
+      const voiceWithSentence = { voiceName: 'Voice 2', lang: 'en-GB', eventTypes: ['start', 'end', 'sentence'] };
+      const voiceBasic = { voiceName: 'Voice 3', lang: 'en-AU', eventTypes: ['start', 'end'] };
+
+      const compatibilityWord = controller.getVoiceCompatibility(voiceWithWord);
+      expect(compatibilityWord).toEqual({
+        fullSelection: true,
+        sentence: true, // has start event
+        word: true
+      });
+
+      const compatibilitySentence = controller.getVoiceCompatibility(voiceWithSentence);
+      expect(compatibilitySentence).toEqual({
+        fullSelection: true,
+        sentence: true,
+        word: false
+      });
+
+      const compatibilityBasic = controller.getVoiceCompatibility(voiceBasic);
+      expect(compatibilityBasic).toEqual({
+        fullSelection: true,
+        sentence: true, // has start event
+        word: false
+      });
+    });
+
+    test('should format compatibility text correctly', () => {
+      const fullCompatibility = { fullSelection: true, sentence: true, word: true };
+      const partialCompatibility = { fullSelection: true, sentence: true, word: false };
+      
+      expect(controller.formatCompatibilityText(fullCompatibility)).toBe('[F✓ S✓ W✓]');
+      expect(controller.formatCompatibilityText(partialCompatibility)).toBe('[F✓ S✓ W✗]');
     });
   });
 });

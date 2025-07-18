@@ -175,9 +175,10 @@ class TTSController {
     chrome.storage.sync.set({ ttsText: this.elements.textArea.value });
   }
 
-  // Save selected voice to storage
+  // Save selected voice to storage and update compatibility indicators
   saveVoice() {
     chrome.storage.sync.set({ selectedVoice: this.elements.voiceSelect.value });
+    this.updateCompatibilityIndicators();
   }
 
   // Update rate display and save to storage
@@ -222,6 +223,8 @@ class TTSController {
         this.populateVoiceOptions(response.voices);
         this.restoreSelectedVoice(() => {
           console.log('Selected voice restored, checking for pending speak text...');
+          // Update compatibility indicators after voice is restored
+          this.updateCompatibilityIndicators();
           // If we have pending selected text to speak, do it now
           if (this._pendingSpeakText && !this._autoSpeakTriggered) {
             console.log('Auto-speaking with rate:', this.elements.rateRange.value);
@@ -246,16 +249,47 @@ class TTSController {
     });
   }
 
-  // Populate voice options in dropdown
+  // Populate voice options in dropdown with compatibility indicators
   populateVoiceOptions(voices) {
     this.elements.voiceSelect.innerHTML = '';
+    
+    // Store voices for compatibility checking
+    this.availableVoices = voices;
     
     voices.forEach((voice) => {
       const option = document.createElement('option');
       option.value = voice.voiceName;
-      option.textContent = `${voice.voiceName} (${voice.lang})${voice.default ? ' [default]' : ''}`;
+      
+      // Check compatibility for each highlighting mode
+      const compatibility = this.getVoiceCompatibility(voice);
+      const compatibilityText = this.formatCompatibilityText(compatibility);
+      
+      option.textContent = `${voice.voiceName} (${voice.lang})${voice.default ? ' [default]' : ''} ${compatibilityText}`;
       this.elements.voiceSelect.appendChild(option);
     });
+  }
+
+  // Check which highlighting modes this voice supports
+  getVoiceCompatibility(voice) {
+    const eventTypes = voice.eventTypes || [];
+    
+    return {
+      fullSelection: true, // Always supported (just needs start/end events)
+      sentence: eventTypes.includes('sentence') || eventTypes.includes('start'), // Sentence boundaries or basic events
+      word: eventTypes.includes('word') // Word boundaries required
+    };
+  }
+
+  // Format compatibility information for display
+  formatCompatibilityText(compatibility) {
+    const indicators = [];
+    
+    // Use short indicators to keep dropdown readable
+    if (compatibility.fullSelection) indicators.push('F✓');
+    if (compatibility.sentence) indicators.push('S✓'); else indicators.push('S✗');
+    if (compatibility.word) indicators.push('W✓'); else indicators.push('W✗');
+    
+    return `[${indicators.join(' ')}]`;
   }
 
   // Restore previously selected voice, then call callback
@@ -470,6 +504,45 @@ class TTSController {
     if (settings.global) {
       this.elements.autoScrollToggle.checked = settings.global.autoScroll !== false;
       this.elements.animationToggle.checked = settings.global.animationEffects !== false;
+    }
+  }
+
+  // Update compatibility indicators in settings panel
+  updateCompatibilityIndicators() {
+    // Get the currently selected voice
+    const selectedVoiceName = this.elements.voiceSelect.value;
+    if (!selectedVoiceName || !this.availableVoices) return;
+    
+    const selectedVoice = this.availableVoices.find(voice => voice.voiceName === selectedVoiceName);
+    if (!selectedVoice) return;
+    
+    const compatibility = this.getVoiceCompatibility(selectedVoice);
+    
+    // Update sentence compatibility indicator
+    if (this.elements.sentenceCompatibility) {
+      this.updateCompatibilityElement(this.elements.sentenceCompatibility, compatibility.sentence, 'Sentence highlighting');
+    }
+    
+    // Update word compatibility indicator
+    if (this.elements.wordCompatibility) {
+      this.updateCompatibilityElement(this.elements.wordCompatibility, compatibility.word, 'Word-by-word highlighting');
+    }
+  }
+
+  // Update a single compatibility indicator element
+  updateCompatibilityElement(element, isSupported, featureName) {
+    const statusElement = element.querySelector('.compatibility-status');
+    if (!statusElement) return;
+    
+    // Clear existing classes
+    element.classList.remove('supported', 'unsupported');
+    
+    if (isSupported) {
+      element.classList.add('supported');
+      statusElement.textContent = `${featureName} supported ✓`;
+    } else {
+      element.classList.add('unsupported');
+      statusElement.textContent = `${featureName} not supported by this voice`;
     }
   }
 
