@@ -76,3 +76,118 @@ Components communicate via Chrome extension messaging:
 ## Git Workflow
 
 **IMPORTANT**: Do not commit or push to origin unless explicitly instructed by the user. Only make code changes, run tests, and update documentation. Wait for explicit instructions before running git commands.
+
+## Implementation Notes
+
+**IMPORTANT**: Do not start implementation of new features until the design and plan are approved by the user. Wait for explicit approval before making code changes.
+
+## Configurable Highlighting Implementation Plan
+
+### Overview
+Implement three configurable highlighting modes during TTS playback:
+- **Full Selection**: Highlights entire selected text (✅ Already implemented)
+- **Sentence Mode**: Highlights current sentence being spoken
+- **Word Mode**: Highlights currently spoken word
+
+### Implementation Phases
+
+#### Phase 1: Settings Infrastructure
+**Goal**: Create foundation for configurable highlighting
+
+**What we'll build:**
+- Settings storage system with highlighting preferences
+- Settings button in popup UI (gear icon next to existing controls)
+- Settings panel within popup containing mode selector and style options
+- Default configuration (Full Selection mode)
+
+**Files to modify:**
+- `extension/popup.html` - Add settings button and panel
+- `extension/popup.js` - Add settings UI logic
+- `extension/background.js` - Add settings management
+
+#### Phase 2: Voice Compatibility Detection
+**Goal**: Detect which highlighting modes work with current voice
+
+**What we'll build:**
+- Voice capability detection system
+- Compatibility indicators in settings panel
+- Graceful fallback to supported modes
+
+**Files to modify:**
+- `extension/background.js` - Add voice analysis
+- `extension/popup.js` - Add compatibility UI
+
+#### Phase 3: Sentence Highlighting
+**Goal**: Implement sentence-by-sentence highlighting
+
+**What we'll build:**
+- Sentence boundary detection
+- Sentence event handling from TTS API
+- Sentence-level DOM manipulation in TextHighlighter
+
+**Files to modify:**
+- `extension/controlbar.js` - Extend TextHighlighter class
+- `extension/background.js` - Add sentence event handling
+
+#### Phase 4: Word-by-Word Highlighting
+**Goal**: Implement word-by-word highlighting
+
+**What we'll build:**
+- Word boundary detection
+- Word event handling from TTS API
+- Word-level DOM manipulation with transitions
+
+**Files to modify:**
+- `extension/controlbar.js` - Add word highlighting methods
+- `extension/background.js` - Add word event handling
+
+#### Phase 5: Advanced Features
+**Goal**: Add polish and customization
+
+**What we'll build:**
+- Style customization (color picker, opacity controls)
+- Auto-scroll to keep highlights visible
+- Smooth transitions and animations
+
+**Files to modify:**
+- `extension/popup.html` - Add style controls
+- `extension/controlbar.js` - Add auto-scroll logic
+
+### Settings UI Design
+
+#### Main Popup (unchanged)
+- Voice selection dropdown
+- Text input area
+- Speed slider
+- Speak/Stop buttons
+- **NEW: Settings button (⚙️ icon)**
+
+#### Settings Panel (toggleable)
+- **Highlighting Mode**: Radio buttons (Full Selection, Sentence, Word-by-Word)
+- **Style Options**: Color picker, opacity slider
+- **Auto-scroll**: Toggle switch
+- **Voice Compatibility**: Status indicators
+- **Close button**: Return to main interface
+
+### Implementation Priority
+
+#### High Priority (MVP)
+1. ✅ Full Selection Highlighting (done)
+2. Settings Infrastructure
+3. Sentence Highlighting
+4. Voice Compatibility Detection
+
+#### Medium Priority
+5. Word-by-Word Highlighting
+6. Style Customization
+
+#### Low Priority (Polish)
+7. Auto-scroll Feature
+8. Advanced Animations
+
+### Success Criteria
+- Settings accessible via button in popup
+- Three highlighting modes work correctly
+- Voice compatibility properly detected
+- Settings persist across sessions
+- Backwards compatibility maintained
