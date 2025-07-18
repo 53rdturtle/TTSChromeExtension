@@ -535,18 +535,59 @@ class FloatingControlBar {
     document.removeEventListener('mouseup', this.stopDrag.bind(this));
     document.removeEventListener('touchmove', this.handleDragMove.bind(this));
     document.removeEventListener('touchend', this.stopDrag.bind(this));
+    
+    // Update global position when drag ends
+    this.updateGlobalPosition();
+  }
+  
+  updateGlobalPosition() {
+    const position = this.getPosition();
+    chrome.runtime.sendMessage({
+      type: 'updateControlBarPosition',
+      position: position
+    }).catch(() => {
+      // Ignore errors if background script isn't available
+    });
   }
 
-  show() {
+  show(position = null) {
     if (!this.isVisible) {
       document.body.appendChild(this.controlBar);
       this.isVisible = true;
+      
+      // Apply position if provided
+      if (position) {
+        this.applyPosition(position);
+      }
       
       // Trigger animation
       setTimeout(() => {
         this.controlBar.classList.add('visible');
       }, 10);
     }
+  }
+  
+  applyPosition(position) {
+    if (position.x !== null) {
+      this.controlBar.style.left = position.x + 'px';
+      this.controlBar.style.right = 'auto';
+    }
+    if (position.y !== null) {
+      this.controlBar.style.top = position.y + 'px';
+      this.controlBar.style.bottom = 'auto';
+    } else if (position.bottom !== null) {
+      this.controlBar.style.bottom = position.bottom + 'px';
+      this.controlBar.style.top = 'auto';
+    }
+  }
+  
+  getPosition() {
+    const rect = this.controlBar.getBoundingClientRect();
+    return {
+      x: rect.left,
+      y: rect.top,
+      bottom: window.innerHeight - rect.bottom
+    };
   }
 
   hide() {
@@ -678,7 +719,8 @@ if (!window.ttsMessageListenerAdded) {
     switch (message.type) {
       case 'showControlBar':
         console.log('Showing control bar');
-        window.floatingControlBar.show();
+        // Show with position if provided
+        window.floatingControlBar.show(message.position);
         // Set initial state if provided
         if (message.isSpeaking !== undefined || message.isPaused !== undefined) {
           console.log('Updating control bar status:', message.isSpeaking, message.isPaused);

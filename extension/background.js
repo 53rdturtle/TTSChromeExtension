@@ -4,7 +4,9 @@
 let globalTTSState = {
   isSpeaking: false,
   isPaused: false,
-  showControlBar: false
+  showControlBar: false,
+  controlBarPosition: { x: 20, y: null, bottom: 20 }, // Default position
+  controlBarSize: { width: 200, height: 'auto' }
 };
 
 // Function to broadcast control bar state to all tabs
@@ -32,7 +34,9 @@ async function broadcastControlBarState() {
           const message = {
             type: globalTTSState.showControlBar ? 'showControlBar' : 'hideControlBar',
             isSpeaking: globalTTSState.isSpeaking,
-            isPaused: globalTTSState.isPaused
+            isPaused: globalTTSState.isPaused,
+            position: globalTTSState.controlBarPosition,
+            size: globalTTSState.controlBarSize
           };
           console.log(`Sending message to tab ${tab.id}:`, message);
           await chrome.tabs.sendMessage(tab.id, message);
@@ -454,6 +458,14 @@ const messageHandler = new MessageHandler(ttsService);
 
 // Set up message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle control bar position updates
+  if (message.type === 'updateControlBarPosition') {
+    globalTTSState.controlBarPosition = message.position;
+    console.log('Updated global control bar position:', message.position);
+    sendResponse({ status: 'success' });
+    return true;
+  }
+  
   // Return true to indicate async response
   messageHandler.handleMessage(message, sender, sendResponse);
   return true;
@@ -649,7 +661,9 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
           chrome.tabs.sendMessage(activeInfo.tabId, {
             type: 'showControlBar',
             isSpeaking: globalTTSState.isSpeaking,
-            isPaused: globalTTSState.isPaused
+            isPaused: globalTTSState.isPaused,
+            position: globalTTSState.controlBarPosition,
+            size: globalTTSState.controlBarSize
           }).catch((error) => {
             console.log(`Failed to send message to activated tab: ${error.message}`);
           });
@@ -680,7 +694,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
           chrome.tabs.sendMessage(tabId, {
             type: 'showControlBar',
             isSpeaking: globalTTSState.isSpeaking,
-            isPaused: globalTTSState.isPaused
+            isPaused: globalTTSState.isPaused,
+            position: globalTTSState.controlBarPosition,
+            size: globalTTSState.controlBarSize
           }).catch(() => {
             // Ignore errors for tabs that don't support content scripts
           });
