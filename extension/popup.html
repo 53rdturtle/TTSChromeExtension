@@ -218,12 +218,17 @@
     }
 
     .settings-header {
+      position: sticky;
+      top: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
+      padding: 20px 20px 10px 20px;
+      margin-bottom: 0;
+      background: white;
       border-bottom: 1px solid #e2e8f0;
+      z-index: 1001;
+      border-radius: 12px 12px 0 0;
     }
 
     .settings-header h2 {
@@ -418,6 +423,12 @@
       margin-left: 8px;
     }
 
+    .settings-content {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: calc(580px - 60px);
+    }
+
     .section-content.global-options {
       display: block;
     }
@@ -475,7 +486,8 @@
         <button class="close-btn" id="closeSettingsBtn">×</button>
       </div>
 
-      <!-- Full Selection Highlighting Section -->
+      <div class="settings-content">
+        <!-- Full Selection Highlighting Section -->
       <div class="settings-section">
         <div class="section-header">
           <h3>Full Selection Highlighting</h3>
@@ -568,6 +580,7 @@
             </label>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>
