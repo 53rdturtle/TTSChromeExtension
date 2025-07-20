@@ -15,6 +15,8 @@ class TTSController {
       this.populateVoices();
       console.log('Loading highlighting settings...');
       this.loadHighlightingSettings();
+      console.log('Loading Google TTS settings...');
+      this.loadGoogleTTSSettings();
     });
     console.log('Constructor completed');
   }
@@ -48,6 +50,9 @@ class TTSController {
       wordColor: document.getElementById('wordColor'),
       wordOpacity: document.getElementById('wordOpacity'),
       wordOpacityValue: document.getElementById('wordOpacityValue'),
+      // Google TTS elements
+      googleTTSToggle: document.getElementById('googleTTSToggle'),
+      googleAPIKey: document.getElementById('googleAPIKey'),
       wordCompatibility: document.getElementById('wordCompatibility'),
       // Global elements
       autoScrollToggle: document.getElementById('autoScrollToggle'),
@@ -102,6 +107,10 @@ class TTSController {
     // Global events
     this.elements.autoScrollToggle.addEventListener('change', () => this.saveSettings());
     this.elements.animationToggle.addEventListener('change', () => this.saveSettings());
+    
+    // Google TTS events
+    this.elements.googleTTSToggle.addEventListener('change', () => this.saveGoogleTTSSettings());
+    this.elements.googleAPIKey.addEventListener('input', () => this.saveGoogleTTSSettings());
   }
 
   // Load saved data from storage, but prefer selected text from the active tab if available
@@ -596,6 +605,33 @@ class TTSController {
       } else {
         console.error('Failed to save settings:', response?.error);
         this.showError('Failed to save settings: ' + (response?.error || 'Unknown error'));
+      }
+    });
+  }
+
+  // Load Google TTS settings
+  loadGoogleTTSSettings() {
+    console.log('Loading Google TTS settings...');
+    chrome.storage.sync.get(['googleTTSEnabled', 'googleAPIKey'], (result) => {
+      console.log('Loaded Google TTS settings:', result);
+      this.elements.googleTTSToggle.checked = result.googleTTSEnabled === true;
+      this.elements.googleAPIKey.value = result.googleAPIKey || '';
+    });
+  }
+
+  // Save Google TTS settings
+  saveGoogleTTSSettings() {
+    console.log('Saving Google TTS settings...');
+    const settings = {
+      googleTTSEnabled: this.elements.googleTTSToggle.checked,
+      googleAPIKey: this.elements.googleAPIKey.value.trim()
+    };
+    
+    chrome.storage.sync.set(settings, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Failed to save Google TTS settings:', chrome.runtime.lastError);
+      } else {
+        console.log('Google TTS settings saved successfully');
       }
     });
   }

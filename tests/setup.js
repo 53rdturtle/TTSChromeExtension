@@ -1,4 +1,34 @@
 // Test setup for Chrome Extension APIs
+// Mock importScripts for service worker imports
+global.importScripts = jest.fn();
+
+// Mock GoogleTTSService class
+global.GoogleTTSService = class {
+  constructor() {
+    this.apiKey = null;
+  }
+  
+  async isEnabled() {
+    return false;
+  }
+  
+  async speak(text, options) {
+    return { status: 'speaking', service: 'google' };
+  }
+  
+  async stopAudio() {
+    return { status: 'stopped' };
+  }
+  
+  async synthesize(text, options) {
+    return { audioContent: 'mock-audio-data' };
+  }
+  
+  async getVoices() {
+    return [];
+  }
+};
+
 global.chrome = {
   runtime: {
     onMessage: {
@@ -110,7 +140,10 @@ global.document = {
       'highlightOpacity': createMockElement('input'),
       'opacityValue': createMockElement('span'),
       'autoScrollToggle': createMockElement('input'),
-      'highlightingToggle': createMockElement('input')
+      'highlightingToggle': createMockElement('input'),
+      // Google TTS elements
+      'googleTTSToggle': createMockElement('input'),
+      'googleAPIKey': createMockElement('input')
     };
     return mockElements[id] || createMockElement('div');
   }),

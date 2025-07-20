@@ -1,5 +1,8 @@
 // Background service worker for TTS Chrome Extension
 
+// Import Google TTS service
+importScripts('services/google-tts.js');
+
 // Default highlighting settings - Enhanced per-mode configuration
 const DEFAULT_HIGHLIGHTING_SETTINGS = {
   fullSelection: {
@@ -47,17 +50,13 @@ let globalTTSState = {
 
 // Function to broadcast control bar state to all tabs
 async function broadcastControlBarState() {
-  console.log('Broadcasting control bar state:', globalTTSState);
   try {
     const tabs = await chrome.tabs.query({});
-    console.log(`Broadcasting to ${tabs.length} tabs`);
     
     for (const tab of tabs) {
-      console.log(`Processing tab ${tab.id}: ${tab.url} (status: ${tab.status}, title: ${tab.title})`);
       if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:')) && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
         try {
           // Inject content script if not already injected
-          console.log(`Injecting content script into tab ${tab.id}`);
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
             files: ['controlbar.js']
@@ -74,18 +73,12 @@ async function broadcastControlBarState() {
             position: globalTTSState.controlBarPosition,
             size: globalTTSState.controlBarSize
           };
-          console.log(`Sending message to tab ${tab.id}:`, message);
           await chrome.tabs.sendMessage(tab.id, message);
-          console.log(`Successfully sent message to tab ${tab.id}`);
         } catch (error) {
-          // Ignore tabs that don't support content scripts
-          console.log(`Could not broadcast to tab ${tab.id}: ${error.message}`);
+          // Ignore tabs that don't support content scripts (silently)
         }
-      } else {
-        console.log(`Skipping tab ${tab.id}: unsupported URL`);
       }
     }
-    console.log('Finished broadcasting to all tabs');
   } catch (error) {
     console.error('Error broadcasting control bar state:', error);
   }
@@ -94,47 +87,36 @@ async function broadcastControlBarState() {
 // Shared utility to get selected text from active tab
 async function getSelectedTextFromActiveTab() {
   return new Promise((resolve) => {
-    console.log('getSelectedTextFromActiveTab called');
     // Query for tabs in the current window, excluding popup windows
     chrome.tabs.query({ 
       active: true, 
       currentWindow: true,
       windowType: 'normal' // Only normal windows, not popups
     }, (tabs) => {
-      console.log('Active tabs (normal windows):', tabs);
       if (tabs && tabs[0]) {
-        console.log('Executing script on tab:', tabs[0].id);
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
           func: () => window.getSelection().toString()
         }, (results) => {
-          console.log('Script execution results:', results);
           const selectedText = results && results[0] && results[0].result;
-          console.log('Raw selected text:', selectedText);
           resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
         });
       } else {
-        console.log('No active normal tab found, trying alternative approach');
         // Alternative: get the last active tab
         chrome.tabs.query({ 
           active: true, 
           windowType: 'normal'
         }, (allTabs) => {
-          console.log('All active tabs:', allTabs);
           if (allTabs && allTabs.length > 0) {
             const tab = allTabs[0];
-            console.log('Using tab:', tab.id);
             chrome.scripting.executeScript({
               target: { tabId: tab.id },
               func: () => window.getSelection().toString()
             }, (results) => {
-              console.log('Script execution results (alternative):', results);
               const selectedText = results && results[0] && results[0].result;
-              console.log('Raw selected text (alternative):', selectedText);
               resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
             });
           } else {
-            console.log('No tabs found at all');
             resolve(null);
           }
         });
@@ -165,18 +147,13 @@ class TTSService {
         pitch: options.pitch || 1.0,
         volume: options.volume || 1.0,
         onEvent: (event) => {
-          console.log('TTS Event:', event.type);
-          
-          if (event.type === "start") {
-            console.log('TTS Event: start - updating global state and broadcasting');
+            if (event.type === "start") {
             this.isSpeaking = true;
             this.isPaused = false;
             // Update global state
             globalTTSState.isSpeaking = true;
             globalTTSState.isPaused = false;
             globalTTSState.showControlBar = true;
-            
-            console.log('Global TTS state after start:', globalTTSState);
             
             // Send message to content script to highlight text
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -191,10 +168,8 @@ class TTSService {
               }
             });
             // Broadcast control bar to all tabs
-            console.log('Broadcasting control bar state after TTS start');
             broadcastControlBarState();
           } else if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
-            console.log(`TTS Event: ${event.type} - hiding control bar globally`);
             this.isSpeaking = false;
             this.isPaused = false;
             // Update global state
@@ -202,8 +177,6 @@ class TTSService {
             globalTTSState.isPaused = false;
             globalTTSState.showControlBar = false;
             globalTTSState.originatingTabId = null;
-            
-            console.log('Global TTS state after end:', globalTTSState);
             
             // Send message to ALL tabs to remove highlights
             chrome.tabs.query({}, (tabs) => {
@@ -219,7 +192,6 @@ class TTSService {
               });
             });
             // Broadcast control bar hide to all tabs
-            console.log('Broadcasting control bar hide after TTS end');
             broadcastControlBarState();
           } else if (event.type === "pause") {
             this.isSpeaking = false;
@@ -331,7 +303,7 @@ class MessageHandler {
   // Handle incoming messages
   async handleMessage(message, sender, sendResponse) {
     try {
-      console.log('MessageHandler.handleMessage called with type:', message.type);
+      // console.log('MessageHandler.handleMessage called with type:', message.type);
       switch (message.type) {
         case 'speak':
           await this.handleSpeak(message, sendResponse);
@@ -375,9 +347,7 @@ class MessageHandler {
 
   // Handle speak message
   async handleSpeak(message, sendResponse) {
-    console.log('handleSpeak called with message:', message);
     if (!message.text || message.text.trim() === '') {
-      console.log('No text provided for speak');
       sendResponse({ status: 'error', error: 'No text provided' });
       return;
     }
@@ -386,27 +356,53 @@ class MessageHandler {
       rate: message.rate,
       voiceName: message.voiceName
     };
-    console.log('TTS options:', options);
 
     try {
-      console.log('Calling TTS service speak...');
-      const result = await this.ttsService.speak(message.text, options);
-      console.log('TTS service speak result:', result);
+      // Check if Google TTS is enabled
+      const useGoogleTTS = await googleTTSService.isEnabled();
       
-      // Control bar will be shown by TTS service callback
-      sendResponse(result);
+      if (useGoogleTTS) {
+        const result = await googleTTSService.speak(message.text, options);
+        sendResponse(result);
+        
+      } else {
+        const result = await this.ttsService.speak(message.text, options);
+        sendResponse(result);
+      }
+      
     } catch (error) {
       console.error('TTS service speak error:', error);
-      sendResponse({ status: 'error', error: error });
+      
+      // If Google TTS fails, try fallback to Chrome TTS
+      if (await googleTTSService.isEnabled()) {
+        console.log('⚠️ Google TTS failed, falling back to Chrome TTS');
+        try {
+          const result = await this.ttsService.speak(message.text, options);
+          sendResponse(result);
+        } catch (fallbackError) {
+          console.error('Chrome TTS fallback also failed:', fallbackError);
+          sendResponse({ status: 'error', error: fallbackError.message || fallbackError });
+        }
+      } else {
+        sendResponse({ status: 'error', error: error.message || error });
+      }
     }
   }
 
   // Handle stop message
   async handleStop(sendResponse) {
     try {
-      const result = await this.ttsService.stop();
-      // Update control bar will be hidden by TTS event listener
-      sendResponse(result);
+      // Stop both Chrome TTS and Google TTS
+      const chromeResult = await this.ttsService.stop();
+      await googleTTSService.stopAudio();
+      
+      // Update global state
+      globalTTSState.isSpeaking = false;
+      globalTTSState.isPaused = false;
+      globalTTSState.showControlBar = false;
+      broadcastControlBarState();
+      
+      sendResponse(chromeResult);
     } catch (error) {
       sendResponse({ status: 'error', error: error });
     }
@@ -437,13 +433,8 @@ class MessageHandler {
   // Handle get voices message
   async handleGetVoices(sendResponse) {
     try {
-      console.log('handleGetVoices called');
-      console.log('Getting voices...');
       const voices = await this.ttsService.getVoices();
-      console.log('Voices retrieved:', voices.length, 'voices');
-      console.log('Sending voices response...');
       sendResponse({ status: 'success', voices: voices });
-      console.log('Voices response sent');
     } catch (error) {
       console.error('Error getting voices:', error);
       sendResponse({ status: 'error', error: error });
@@ -460,9 +451,7 @@ class MessageHandler {
   // Handle get selected text message
   async handleGetSelectedText(sendResponse) {
     try {
-      console.log('Handling getSelectedText request...');
       const selectedText = await getSelectedTextFromActiveTab();
-      console.log('Selected text result:', selectedText);
       sendResponse({ status: 'success', selectedText: selectedText });
     } catch (error) {
       console.error('Error getting selected text:', error);
@@ -525,6 +514,7 @@ class MessageHandler {
 
 // Initialize services
 const ttsService = new TTSService();
+const googleTTSService = new GoogleTTSService();
 const messageHandler = new MessageHandler(ttsService);
 
 // Set up message listener
@@ -532,7 +522,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle control bar position updates
   if (message.type === 'updateControlBarPosition') {
     globalTTSState.controlBarPosition = message.position;
-    console.log('Updated global control bar position:', message.position);
+    sendResponse({ status: 'success' });
+    return true;
+  }
+  
+  // Handle Google TTS events from offscreen document
+  if (message.type === 'googleTTSStarted') {
+    globalTTSState.isSpeaking = true;
+    globalTTSState.isPaused = false;
+    globalTTSState.showControlBar = true;
+    broadcastControlBarState();
+    sendResponse({ status: 'success' });
+    return true;
+  }
+  
+  if (message.type === 'googleTTSEnded') {
+    globalTTSState.isSpeaking = false;
+    globalTTSState.isPaused = false;
+    globalTTSState.showControlBar = false;
+    broadcastControlBarState();
+    sendResponse({ status: 'success' });
+    return true;
+  }
+  
+  if (message.type === 'googleTTSPaused') {
+    globalTTSState.isSpeaking = false;
+    globalTTSState.isPaused = true;
+    broadcastControlBarState();
+    sendResponse({ status: 'success' });
+    return true;
+  }
+  
+  if (message.type === 'googleTTSError') {
+    console.error('❌ Google TTS error:', message.error);
+    globalTTSState.isSpeaking = false;
+    globalTTSState.isPaused = false;
+    globalTTSState.showControlBar = false;
+    broadcastControlBarState();
     sendResponse({ status: 'success' });
     return true;
   }
@@ -550,112 +576,18 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
     const selectedText = await getSelectedTextFromActiveTab();
     if (selectedText) {
       // Get last used voice and rate from storage
-      chrome.storage.sync.get(['selectedVoice', 'speechRate'], (prefs) => {
-        const options = {
+      chrome.storage.sync.get(['selectedVoice', 'speechRate'], async (prefs) => {
+        const message = {
+          type: 'speak',
+          text: selectedText,
           rate: prefs.speechRate ? parseFloat(prefs.speechRate) : 1.0,
-          pitch: 1.0,
-          volume: 1.0,
-          onEvent: (event) => {
-            console.log('TTS Event (keyboard shortcut):', event.type);
-            
-            if (event.type === "start") {
-              console.log('TTS Event (keyboard): start - updating global state and broadcasting');
-              ttsService.isSpeaking = true;
-              ttsService.isPaused = false;
-              // Update global state
-              globalTTSState.isSpeaking = true;
-              globalTTSState.isPaused = false;
-              globalTTSState.showControlBar = true;
-              
-              console.log('Global TTS state after keyboard start:', globalTTSState);
-              
-              // Send message to content script to highlight text
-              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                  // Store the originating tab ID
-                  globalTTSState.originatingTabId = tabs[0].id;
-                  chrome.tabs.sendMessage(tabs[0].id, {
-                    type: 'highlightText',
-                    text: selectedText,
-                    action: 'start'
-                  });
-                }
-              });
-              // Broadcast control bar to all tabs
-              console.log('Broadcasting control bar state after keyboard TTS start');
-              broadcastControlBarState();
-            } else if (["end", "error", "interrupted", "cancelled"].includes(event.type)) {
-              console.log(`TTS Event (keyboard): ${event.type} - hiding control bar globally`);
-              ttsService.isSpeaking = false;
-              ttsService.isPaused = false;
-              // Update global state
-              globalTTSState.isSpeaking = false;
-              globalTTSState.isPaused = false;
-              globalTTSState.showControlBar = false;
-              globalTTSState.originatingTabId = null;
-              
-              console.log('Global TTS state after keyboard end:', globalTTSState);
-              
-              // Send message to ALL tabs to remove highlights
-              chrome.tabs.query({}, (tabs) => {
-                tabs.forEach(tab => {
-                  if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:'))) {
-                    chrome.tabs.sendMessage(tab.id, {
-                      type: 'highlightText',
-                      action: 'end'
-                    }).catch(() => {
-                      // Ignore errors for tabs without content scripts
-                    });
-                  }
-                });
-              });
-              // Broadcast control bar hide to all tabs
-              console.log('Broadcasting control bar hide after keyboard TTS end');
-              broadcastControlBarState();
-            } else if (event.type === "pause") {
-              ttsService.isSpeaking = false;
-              ttsService.isPaused = true;
-              // Update global state
-              globalTTSState.isSpeaking = false;
-              globalTTSState.isPaused = true;
-              
-              // Broadcast updated state to all tabs
-              broadcastControlBarState();
-            } else if (event.type === "resume") {
-              ttsService.isSpeaking = true;
-              ttsService.isPaused = false;
-              // Update global state
-              globalTTSState.isSpeaking = true;
-              globalTTSState.isPaused = false;
-              
-              // Broadcast updated state to all tabs
-              broadcastControlBarState();
-            }
-          }
+          voiceName: prefs.selectedVoice
         };
         
-        if (prefs.selectedVoice) {
-          options.voiceName = prefs.selectedVoice;
-        }
-        
-        // Stop any existing TTS before starting new speech
-        chrome.tts.stop();
-        
-        // Reset TTS service state
-        ttsService.isSpeaking = false;
-        ttsService.isPaused = false;
-        
-        // Call TTS API directly
-        chrome.tts.speak(selectedText, options, () => {
-          if (chrome.runtime.lastError) {
-            console.error('TTS Error:', chrome.runtime.lastError);
-          } else {
-            console.log('Speaking selected text:', selectedText);
-            // Update TTS service state to reflect current speaking status
-            ttsService.isSpeaking = true;
-            ttsService.isPaused = false;
-            // Show floating control bar on active tab
-            showFloatingControlBar();
+        // Use the integrated handleSpeak method that includes Google TTS
+        await messageHandler.handleSpeak(message, (response) => {
+          if (response && response.status === 'error') {
+            console.error('TTS Error from keyboard shortcut:', response.error);
           }
         });
       });
@@ -718,16 +650,13 @@ async function updateControlBarStatus() {
 
 // Listen for tab activation to show control bar on newly activated tabs
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  console.log(`Tab activated: ${activeInfo.tabId}, globalTTSState:`, globalTTSState);
   if (globalTTSState.showControlBar) {
     try {
       // Get tab info
       const tab = await chrome.tabs.get(activeInfo.tabId);
-      console.log(`Activated tab URL: ${tab.url} (status: ${tab.status}, title: ${tab.title})`);
       
       if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:')) && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
         // Inject content script and show control bar on activated tab
-        console.log(`Injecting content script into activated tab ${activeInfo.tabId}`);
         await chrome.scripting.executeScript({
           target: { tabId: activeInfo.tabId },
           files: ['controlbar.js']
@@ -735,25 +664,20 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         
         // Small delay to ensure content script is loaded
         setTimeout(() => {
-          console.log(`Sending showControlBar message to activated tab ${activeInfo.tabId}`);
           chrome.tabs.sendMessage(activeInfo.tabId, {
             type: 'showControlBar',
             isSpeaking: globalTTSState.isSpeaking,
             isPaused: globalTTSState.isPaused,
             position: globalTTSState.controlBarPosition,
             size: globalTTSState.controlBarSize
-          }).catch((error) => {
-            console.log(`Failed to send message to activated tab: ${error.message}`);
+          }).catch(() => {
+            // Ignore errors for tabs without content scripts
           });
         }, 100);
-      } else {
-        console.log(`Skipping activated tab ${activeInfo.tabId}: unsupported URL`);
       }
     } catch (error) {
-      console.log(`Could not show control bar on activated tab: ${error.message}`);
+      // Ignore errors silently
     }
-  } else {
-    console.log(`Not showing control bar on activated tab - showControlBar is false`);
   }
 });
 
@@ -858,10 +782,8 @@ function deepMerge(target, source) {
 
 // Initialize default settings on extension startup
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('TTS Extension startup - initializing default settings');
   try {
-    const settings = await getHighlightingSettings();
-    console.log('Current highlighting settings:', settings);
+    await getHighlightingSettings();
   } catch (error) {
     console.error('Error loading highlighting settings:', error);
   }
@@ -869,16 +791,57 @@ chrome.runtime.onStartup.addListener(async () => {
 
 // Initialize default settings on extension installation
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('TTS Extension installed - setting up default settings');
   try {
-    const settings = await getHighlightingSettings();
-    console.log('Initialized highlighting settings:', settings);
+    await getHighlightingSettings();
   } catch (error) {
     console.error('Error initializing highlighting settings:', error);
   }
 });
 
-console.log('TTS Chrome Extension background script loaded');
+// Offscreen document management
+let offscreenDocumentCreated = false;
+
+async function createOffscreenDocument() {
+  try {
+    // Check if offscreen document already exists
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [chrome.runtime.getURL('offscreen.html')]
+    });
+    
+    if (existingContexts.length > 0) {
+      offscreenDocumentCreated = true;
+      return;
+    }
+    
+    // Create new offscreen document
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['AUDIO_PLAYBACK'],
+      justification: 'Play Google TTS audio in service worker context'
+    });
+    offscreenDocumentCreated = true;
+  } catch (error) {
+    console.error('Failed to create offscreen document:', error);
+    offscreenDocumentCreated = false;
+  }
+}
+
+async function closeOffscreenDocument() {
+  if (!offscreenDocumentCreated) {
+    return;
+  }
+  
+  try {
+    await chrome.offscreen.closeDocument();
+    offscreenDocumentCreated = false;
+  } catch (error) {
+    console.error('Failed to close offscreen document:', error);
+  }
+}
+
+// Create offscreen document on startup
+createOffscreenDocument();
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {

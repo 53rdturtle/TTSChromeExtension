@@ -362,7 +362,7 @@ describe('MessageHandler', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({ 
         status: 'error',
-        error: expect.any(Error)
+        error: 'TTS Error'
       });
     });
   });
