@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTS Extension Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header class="options-header">
+      <h1>🎙️ TTS Extension Settings</h1>
+      <p>Configure your text-to-speech preferences and highlighting options</p>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="general">General</button>
+      <button class="tab-btn" data-tab="highlighting">Highlighting</button>
+      <button class="tab-btn" data-tab="google-tts">Google TTS</button>
+      <button class="tab-btn" data-tab="advanced">Advanced</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <main class="tab-content">
+      
+      <!-- General Tab -->
+      <section id="general-tab" class="tab-panel active">
+        <h2>General Settings</h2>
+        
+        <div class="setting-section">
+          <h3>Default Voice Settings</h3>
+          
+          <div class="setting-item">
+            <label for="defaultVoice">Default Voice:</label>
+            <select id="defaultVoice" class="setting-select">
+              <option value="">Loading voices...</option>
+            </select>
+            <button id="previewDefaultVoice" class="btn-secondary">🔊 Preview</button>
+          </div>
+          
+          <div class="setting-item">
+            <label for="defaultRate">Default Speech Rate:</label>
+            <input type="range" id="defaultRate" min="0.5" max="2.0" step="0.1" value="1.0">
+            <span id="defaultRateValue">1.0x</span>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Keyboard Shortcuts</h3>
+          
+          <div class="setting-item">
+            <label>Open TTS Popup:</label>
+            <code class="keyboard-shortcut">Ctrl+Shift+Z</code>
+            <span class="setting-note">Configure in Chrome Extensions page</span>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Accessibility</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="announceStatus">
+              <span class="checkmark"></span>
+              Announce TTS status changes
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="highContrast">
+              <span class="checkmark"></span>
+              High contrast highlighting
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Highlighting Tab -->
+      <section id="highlighting-tab" class="tab-panel">
+        <h2>Highlighting Settings</h2>
+        
+        <!-- Live Preview Area -->
+        <div class="preview-section">
+          <h3>Live Preview</h3>
+          <div class="preview-container">
+            <p id="previewText" class="preview-text">
+              This is a sample sentence to demonstrate highlighting modes. 
+              You can see how different highlighting styles will appear during speech playback.
+              Each mode has its own customizable appearance and behavior.
+            </p>
+            <button id="previewHighlighting" class="btn-primary">Preview Highlighting</button>
+          </div>
+        </div>
+
+        <!-- Full Selection Highlighting -->
+        <div class="setting-section">
+          <h3>Full Selection Highlighting</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="fullSelectionEnabled" checked>
+              <span class="checkmark"></span>
+              Enable full selection highlighting
+            </label>
+          </div>
+          
+          <div class="style-controls" id="fullSelectionStyles">
+            <div class="setting-item">
+              <label for="fullSelectionColor">Background Color:</label>
+              <input type="color" id="fullSelectionColor" value="#ffeb3b">
+            </div>
+            
+            <div class="setting-item">
+              <label for="fullSelectionOpacity">Opacity:</label>
+              <input type="range" id="fullSelectionOpacity" min="0.1" max="1.0" step="0.1" value="0.8">
+              <span id="fullSelectionOpacityValue">80%</span>
+            </div>
+            
+            <div class="setting-item">
+              <label for="fullSelectionBorder">Border Style:</label>
+              <select id="fullSelectionBorder">
+                <option value="none">None</option>
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sentence Highlighting -->
+        <div class="setting-section">
+          <h3>Sentence Highlighting</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="sentenceEnabled">
+              <span class="checkmark"></span>
+              Enable sentence highlighting
+            </label>
+            <span class="compatibility-indicator" id="sentenceCompatibility"></span>
+          </div>
+          
+          <div class="style-controls" id="sentenceStyles" style="display: none;">
+            <div class="setting-item">
+              <label for="sentenceColor">Background Color:</label>
+              <input type="color" id="sentenceColor" value="#4caf50">
+            </div>
+            
+            <div class="setting-item">
+              <label for="sentenceOpacity">Opacity:</label>
+              <input type="range" id="sentenceOpacity" min="0.1" max="1.0" step="0.1" value="0.7">
+              <span id="sentenceOpacityValue">70%</span>
+            </div>
+            
+            <div class="setting-item">
+              <label for="sentenceBorder">Border Style:</label>
+              <select id="sentenceBorder">
+                <option value="none">None</option>
+                <option value="solid" selected>Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Global Highlighting Options -->
+        <div class="setting-section">
+          <h3>Global Options</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoScroll" checked>
+              <span class="checkmark"></span>
+              Auto-scroll to keep highlights visible
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="animationEffects" checked>
+              <span class="checkmark"></span>
+              Enable animation effects
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Google TTS Tab -->
+      <section id="google-tts-tab" class="tab-panel">
+        <h2>Google TTS Settings</h2>
+        
+        <div class="setting-section">
+          <h3>API Configuration</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="googleTTSEnabled">
+              <span class="checkmark"></span>
+              Enable Google TTS
+            </label>
+            <span class="setting-note">Requires Google Cloud API key</span>
+          </div>
+          
+          <div class="setting-item">
+            <label for="googleAPIKey">Google Cloud API Key:</label>
+            <div class="api-key-container">
+              <input type="password" id="googleAPIKey" placeholder="Enter your Google Cloud API key">
+              <button id="testConnection" class="btn-secondary">Test Connection</button>
+            </div>
+            <div class="setting-help">
+              <a href="#" id="apiKeyHelp">How to get a Google Cloud API key</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Usage Quota</h3>
+          
+          <div class="quota-display">
+            <div class="quota-info">
+              <span id="quotaText">Usage: Loading...</span>
+              <span id="quotaLimit">Limit: 1,000,000 characters/month (Free Tier)</span>
+            </div>
+            <div class="quota-bar">
+              <div class="quota-used" id="quotaProgress" style="width: 0%"></div>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="quotaWarnings" checked>
+              <span class="checkmark"></span>
+              Show quota warnings at 80% usage
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Voice Preferences</h3>
+          
+          <div class="setting-item">
+            <label for="googleVoiceQuality">Preferred Voice Quality:</label>
+            <select id="googleVoiceQuality">
+              <option value="neural2">Neural2 (Highest Quality)</option>
+              <option value="wavenet">WaveNet (High Quality)</option>
+              <option value="standard">Standard (Faster)</option>
+            </select>
+          </div>
+          
+          <div class="setting-item">
+            <label for="googleTTSThreshold">Auto-upgrade to Google TTS for:</label>
+            <select id="googleTTSThreshold">
+              <option value="never">Never (Manual only)</option>
+              <option value="precise">Precise highlighting only</option>
+              <option value="long">Long texts (200+ characters)</option>
+              <option value="always">All text</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Error Handling</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoFallback" checked>
+              <span class="checkmark"></span>
+              Automatically fallback to Chrome TTS on errors
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="showNotifications" checked>
+              <span class="checkmark"></span>
+              Show notifications for service switches
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Advanced Tab -->
+      <section id="advanced-tab" class="tab-panel">
+        <h2>Advanced Settings</h2>
+        
+        <div class="setting-section">
+          <h3>Document Support</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="pdfSupport">
+              <span class="checkmark"></span>
+              Enable PDF text extraction
+            </label>
+            <span class="setting-note">Experimental feature</span>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="googleDocsSupport">
+              <span class="checkmark"></span>
+              Enable Google Docs integration
+            </label>
+            <span class="setting-note">Experimental feature</span>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="crossPageNavigation">
+              <span class="checkmark"></span>
+              Enable cross-page navigation
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Per-site Preferences</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="perSiteSettings">
+              <span class="checkmark"></span>
+              Remember settings per website
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <button id="manageSites" class="btn-secondary">Manage Site Preferences</button>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Performance</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="audioCaching" checked>
+              <span class="checkmark"></span>
+              Enable audio caching
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <label for="maxCacheSize">Maximum cache size:</label>
+            <select id="maxCacheSize">
+              <option value="10">10 MB</option>
+              <option value="25" selected>25 MB</option>
+              <option value="50">50 MB</option>
+              <option value="100">100 MB</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Debug & Maintenance</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="debugMode">
+              <span class="checkmark"></span>
+              Enable debug logging
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <button id="exportSettings" class="btn-secondary">Export Settings</button>
+            <button id="importSettings" class="btn-secondary">Import Settings</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+          </div>
+          
+          <div class="setting-item">
+            <button id="resetSettings" class="btn-danger">Reset to Defaults</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="options-footer">
+      <div class="footer-actions">
+        <button id="saveSettings" class="btn-primary">Save Settings</button>
+        <button id="cancelSettings" class="btn-secondary">Cancel</button>
+      </div>
+      <div class="footer-info">
+        <span>TTS Extension v1.0.0</span>
+        <a href="#" id="helpLink">Help</a>
+        <a href="#" id="feedbackLink">Feedback</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

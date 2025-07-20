@@ -87,6 +87,7 @@ Components communicate via Chrome extension messaging:
 ### Overview
 - **Full Selection**: Highlights entire selected text (✅ Already implemented)
 - **Sentence Mode**: Highlights current sentence being spoken
+- **Document Support**: PDFs and Google Docs text extraction and highlighting
 - Individual toggle controls and style customization
 
 ### Phases
@@ -109,7 +110,13 @@ Detect highlighting mode support per voice with graceful fallback.
 #### Phase 6: Sentence Highlighting
 Sentence-by-sentence highlighting with boundary detection and event handling.
 
-#### Phase 7: Advanced Features
+#### Phase 7: PDF Support
+Extract and highlight text from PDF documents in browser with cross-page navigation.
+
+#### Phase 8: Google Docs Support  
+Extract and highlight text from Google Docs with live document editing compatibility.
+
+#### Phase 9: Advanced Features
 Auto-scroll, animations, layered highlighting, and polish.
 
 ### Settings UI Design
@@ -167,6 +174,10 @@ Auto-scroll, animations, layered highlighting, and polish.
 - Error handling and fallback settings
 
 **Advanced Tab:**
+- **Document Support**:
+  - PDF text extraction settings
+  - Google Docs integration preferences
+  - Cross-page navigation controls
 - Per-site TTS preferences
 - Advanced highlighting options
 - Performance tuning

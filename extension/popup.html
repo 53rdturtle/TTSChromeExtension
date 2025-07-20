@@ -12,16 +12,11 @@
     }
 
     body {
-      min-width: 300px;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: #333;
-      padding: 20px;
-    }
-
-    body.settings-open {
-      min-width: 480px;
-      min-height: 600px;
+      padding: 16px;
     }
 
     .container {
@@ -37,72 +32,118 @@
     }
 
     .header h1 {
-      font-size: 18px;
-      color: #4a5568;
+      font-size: 20px;
+      color: #2c3e50;
       margin-bottom: 5px;
+      font-weight: 600;
     }
 
     .header p {
-      font-size: 12px;
-      color: #718096;
+      font-size: 13px;
+      color: #666;
     }
 
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 16px;
     }
 
     .form-group label {
       display: block;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: #4a5568;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
+    }
+
+    .voice-selection-container {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .voice-selection-container select {
+      flex: 1;
     }
 
     select, textarea {
       width: 100%;
-      padding: 10px;
+      padding: 10px 12px;
       border: 2px solid #e2e8f0;
       border-radius: 8px;
       font-size: 14px;
       transition: border-color 0.3s ease;
+      font-family: inherit;
     }
 
     select:focus, textarea:focus {
       outline: none;
       border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
     textarea {
       resize: vertical;
       min-height: 80px;
-      font-family: inherit;
+      line-height: 1.5;
+    }
+
+    .preview-btn {
+      flex: 0 0 auto;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      background: #f0f8ff;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      color: #667eea;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-btn:hover:not(:disabled) {
+      background: #667eea;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .preview-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      background: #f5f5f5;
+      border-color: #ddd;
+      color: #999;
     }
 
     .slider-container {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 12px;
+      margin-bottom: 16px;
     }
 
     .slider-label {
-      flex: 1;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: #4a5568;
+      min-width: 50px;
     }
 
     .rate-value {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: #667eea;
-      min-width: 30px;
+      min-width: 35px;
       text-align: center;
     }
 
     input[type="range"] {
-      flex: 2;
+      flex: 1;
       height: 6px;
       border-radius: 3px;
       background: #e2e8f0;
@@ -113,8 +154,8 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: #667eea;
       cursor: pointer;
@@ -132,17 +173,18 @@
     }
 
     button {
-      flex: 1;
-      padding: 12px;
+      padding: 12px 16px;
       border: none;
       border-radius: 8px;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s ease;
+      font-family: inherit;
     }
 
     #speakBtn {
+      flex: 1;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
     }
@@ -159,6 +201,7 @@
     }
 
     #stopBtn {
+      flex: 1;
       background: #e53e3e;
       color: white;
     }
@@ -175,16 +218,9 @@
       transform: none;
     }
 
-    .status-indicator {
-      text-align: center;
-      margin-top: 10px;
-      font-size: 12px;
-      color: #718096;
-    }
-
-    .settings-btn {
+    .advanced-settings-btn {
       flex: 0 0 auto;
-      width: 45px;
+      width: 42px;
       padding: 12px 8px;
       background: #f7fafc;
       border: 2px solid #e2e8f0;
@@ -193,319 +229,50 @@
       margin-left: 5px;
     }
 
-    .settings-btn:hover {
+    .advanced-settings-btn:hover {
       background: #edf2f7;
       border-color: #cbd5e0;
       transform: translateY(-1px);
     }
 
-    .settings-panel {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: white;
-      z-index: 1000;
-      border-radius: 12px;
-      display: none;
-      overflow: hidden;
-      max-height: 580px;
-    }
-
-    .settings-panel.active {
-      display: block;
-    }
-
-    .settings-header {
-      position: sticky;
-      top: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px 20px 10px 20px;
-      margin-bottom: 0;
-      background: white;
-      border-bottom: 1px solid #e2e8f0;
-      z-index: 1001;
-      border-radius: 12px 12px 0 0;
-    }
-
-    .settings-header h2 {
-      font-size: 16px;
-      color: #2d3748;
-      margin: 0;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 18px;
-      color: #718096;
-      cursor: pointer;
-      padding: 5px;
-    }
-
-    .close-btn:hover {
-      color: #4a5568;
-    }
-
-    .settings-group {
-      margin-bottom: 12px;
-    }
-
-    .settings-group label {
-      display: block;
+    .status-indicator {
+      text-align: center;
+      margin-top: 12px;
       font-size: 12px;
-      font-weight: 600;
-      color: #4a5568;
-      margin-bottom: 8px;
+      color: #666;
+      min-height: 16px;
     }
 
-    .radio-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .radio-option {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .radio-option input[type="radio"] {
-      width: auto;
-      margin: 0;
-    }
-
-    .radio-option label {
-      margin: 0;
-      font-weight: normal;
-      cursor: pointer;
-      flex: 1;
-    }
-
-    .color-input {
-      width: 100%;
-      height: 35px;
-      border: 2px solid #e2e8f0;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 24px;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: 0.4s;
-      border-radius: 24px;
-    }
-
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.4s;
-      border-radius: 50%;
-    }
-
-    input:checked + .toggle-slider {
-      background-color: #667eea;
-    }
-
-    input:checked + .toggle-slider:before {
-      transform: translateX(26px);
-    }
-
-    .settings-section {
-      margin-bottom: 16px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      cursor: pointer;
-    }
-
-    .section-header h3 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #2d3748;
-    }
-
-    .section-content {
-      padding: 16px;
-      background: white;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-
-    .section-content .settings-group {
-      margin-bottom: 12px;
-    }
-
-    .section-content .compatibility-indicator {
-      grid-column: 1 / -1;
-      margin-top: 4px;
-      margin-bottom: 0;
-    }
-
-    .section-content.collapsed {
-      display: none;
-    }
-
-    .compatibility-indicator {
-      margin-top: 8px;
-      padding: 8px 12px;
-      background: #f7fafc;
-      border-radius: 6px;
-      border-left: 4px solid #cbd5e0;
-    }
-
-    .compatibility-status {
-      font-size: 12px;
-      color: #4a5568;
+    .status-indicator.speaking {
+      color: #667eea;
       font-weight: 500;
     }
 
-    .compatibility-indicator.supported {
-      background: #f0fff4;
-      border-left-color: #38a169;
+    .status-indicator.error {
+      color: #e53e3e;
+      font-weight: 500;
     }
 
-    .compatibility-indicator.supported .compatibility-status {
-      color: #38a169;
-    }
-
-    .compatibility-indicator.unsupported {
-      background: #fef5e7;
-      border-left-color: #ed8936;
-    }
-
-    .compatibility-indicator.unsupported .compatibility-status {
-      color: #ed8936;
-    }
-
-    .settings-section .toggle-switch {
-      margin-left: 8px;
-    }
-
-    .settings-content {
-      padding: 20px;
-      overflow-y: auto;
-      max-height: calc(580px - 60px);
-    }
-
-    .section-content.global-options {
-      display: block;
-    }
-
-    .section-content.global-options .settings-group {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .section-content.global-options .settings-group label {
-      margin-bottom: 0;
-      font-size: 14px;
-    }
-
-    .voice-selection-container {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .voice-selection-container select {
-      flex: 1;
-    }
-
-    .preview-btn {
-      flex: 0 0 auto;
-      width: 40px;
-      height: 40px;
-      padding: 8px;
-      background: #f0f8ff;
-      border: 2px solid #667eea;
-      border-radius: 8px;
-      color: #667eea;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .preview-btn:hover:not(:disabled) {
-      background: #667eea;
-      color: white;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    }
-
-    .preview-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-      background: #f5f5f5;
-      border-color: #ddd;
-      color: #999;
-    }
-
-    .preview-btn.playing {
-      background: #e53e3e;
-      border-color: #e53e3e;
-      color: white;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-      100% { transform: scale(1); }
+    /* Responsive adjustments */
+    @media (max-width: 360px) {
+      body {
+        padding: 12px;
+      }
+      
+      .container {
+        padding: 16px;
+      }
+      
+      .header h1 {
+        font-size: 18px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Text-to-Speech</h1>
+      <h1>🎙️ Text-to-Speech</h1>
       <p>Convert text to speech with custom voices</p>
     </div>
 
@@ -527,145 +294,18 @@
     <div class="slider-container">
       <span class="slider-label">Speed:</span>
       <input type="range" id="rateRange" min="0.5" max="2" step="0.1" value="1">
-      <span class="rate-value" id="rateValue">1.0</span>
+      <span class="rate-value" id="rateValue">1.0x</span>
     </div>
 
     <div class="button-group">
       <button id="speakBtn">Speak</button>
       <button id="stopBtn">Stop</button>
-      <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+      <button id="advancedSettingsBtn" class="advanced-settings-btn" title="Advanced Settings">⚙️</button>
     </div>
 
     <div class="status-indicator" id="statusIndicator"></div>
-
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settingsPanel">
-      <div class="settings-header">
-        <h2>Highlighting Settings</h2>
-        <button class="close-btn" id="closeSettingsBtn">×</button>
-      </div>
-
-      <div class="settings-content">
-        <!-- Full Selection Highlighting Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h3>Full Selection Highlighting</h3>
-          <label class="toggle-switch">
-            <input type="checkbox" id="fullSelectionToggle" checked>
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="section-content" id="fullSelectionContent">
-          <div class="settings-group">
-            <label for="fullSelectionColor">Color:</label>
-            <input type="color" id="fullSelectionColor" class="color-input" value="#ffeb3b">
-          </div>
-          <div class="settings-group">
-            <label for="fullSelectionOpacity">Opacity:</label>
-            <input type="range" id="fullSelectionOpacity" min="0.1" max="1" step="0.1" value="0.8">
-            <span class="rate-value" id="fullSelectionOpacityValue">0.8</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sentence Highlighting Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h3>Sentence Highlighting</h3>
-          <label class="toggle-switch">
-            <input type="checkbox" id="sentenceToggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="section-content" id="sentenceContent">
-          <div class="settings-group">
-            <label for="sentenceColor">Color:</label>
-            <input type="color" id="sentenceColor" class="color-input" value="#4caf50">
-          </div>
-          <div class="settings-group">
-            <label for="sentenceOpacity">Opacity:</label>
-            <input type="range" id="sentenceOpacity" min="0.1" max="1" step="0.1" value="0.7">
-            <span class="rate-value" id="sentenceOpacityValue">0.7</span>
-          </div>
-          <div class="compatibility-indicator" id="sentenceCompatibility">
-            <span class="compatibility-status">Compatibility: Checking...</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Word Highlighting Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h3>Word Highlighting</h3>
-          <label class="toggle-switch">
-            <input type="checkbox" id="wordToggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="section-content" id="wordContent">
-          <div class="settings-group">
-            <label for="wordColor">Color:</label>
-            <input type="color" id="wordColor" class="color-input" value="#2196f3">
-          </div>
-          <div class="settings-group">
-            <label for="wordOpacity">Opacity:</label>
-            <input type="range" id="wordOpacity" min="0.1" max="1" step="0.1" value="0.9">
-            <span class="rate-value" id="wordOpacityValue">0.9</span>
-          </div>
-          <div class="compatibility-indicator" id="wordCompatibility">
-            <span class="compatibility-status">Compatibility: Checking...</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Google TTS Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h3>🚀 Google TTS (Beta)</h3>
-          <label class="toggle-switch">
-            <input type="checkbox" id="googleTTSToggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="section-content" id="googleTTSContent">
-          <div class="settings-group">
-            <label for="googleAPIKey">API Key:</label>
-            <input type="password" id="googleAPIKey" placeholder="Enter Google Cloud API Key" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 12px;">
-          </div>
-          <div class="settings-group">
-            <label style="font-size: 11px; color: #718096; margin-top: 4px;">
-              <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #667eea; text-decoration: none;">Get API Key →</a>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Global Options Section -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h3>Global Options</h3>
-        </div>
-        <div class="section-content global-options">
-          <div class="settings-group">
-            <label>Auto-scroll:</label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="autoScrollToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="settings-group">
-            <label>Animation Effects:</label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="animationToggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-      </div>
-    </div>
   </div>
 
   <script src="popup.js"></script>
 </body>
-</html> 
+</html>

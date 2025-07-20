@@ -323,6 +323,14 @@ class MessageHandler {
         await this.handleGetHighlightingSettings(sendResponse);
       } else if (message.type === 'saveHighlightingSettings') {
         await this.handleSaveHighlightingSettings(message, sendResponse);
+      } else if (message.type === 'getSpeechStatus') {
+        await this.handleGetSpeechStatus(sendResponse);
+      } else if (message.type === 'testGoogleTTS') {
+        await this.handleTestGoogleTTS(message, sendResponse);
+      } else if (message.type === 'getQuotaUsage') {
+        await this.handleGetQuotaUsage(sendResponse);
+      } else if (message.type === 'previewVoice') {
+        await this.handlePreviewVoice(message, sendResponse);
       } else {
         console.log('Unknown message type:', message.type);
         sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -544,6 +552,58 @@ class MessageHandler {
       sendResponse({ status: 'success', message: 'Settings saved' });
     } catch (error) {
       console.error('Error saving highlighting settings:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
+
+  // Handle get speech status message
+  async handleGetSpeechStatus(sendResponse) {
+    const status = this.ttsService.getSpeakingStatus() ? 'speaking' : 'ended';
+    sendResponse({ status: 'success', status: status });
+  }
+
+  // Handle test Google TTS connection
+  async handleTestGoogleTTS(message, sendResponse) {
+    try {
+      // Basic test of Google TTS API with the provided key
+      const testUrl = `https://texttospeech.googleapis.com/v1/voices?key=${message.apiKey}`;
+      
+      const response = await fetch(testUrl);
+      if (response.ok) {
+        sendResponse({ status: 'success', success: true });
+      } else {
+        const errorText = await response.text();
+        sendResponse({ status: 'error', success: false, error: `API Error: ${response.status}` });
+      }
+    } catch (error) {
+      sendResponse({ status: 'error', success: false, error: error.message });
+    }
+  }
+
+  // Handle get quota usage message
+  async handleGetQuotaUsage(sendResponse) {
+    try {
+      chrome.storage.local.get(['googleTTSUsage'], (result) => {
+        const usage = result.googleTTSUsage || 0;
+        sendResponse({ status: 'success', usage: usage });
+      });
+    } catch (error) {
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
+
+  // Handle preview voice message
+  async handlePreviewVoice(message, sendResponse) {
+    try {
+      const options = {
+        rate: message.rate,
+        voiceName: message.voiceName
+      };
+
+      await this.ttsService.speak(message.text, options);
+      sendResponse({ status: 'success' });
+    } catch (error) {
+      console.error('Error previewing voice:', error);
       sendResponse({ status: 'error', error: error.message });
     }
   }
