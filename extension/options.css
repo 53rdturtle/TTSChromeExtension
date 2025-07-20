@@ -767,6 +767,35 @@ button:disabled {
   margin-left: 16px;
 }
 
+.voice-favorite-btn {
+  padding: 6px 8px;
+  background: transparent;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-favorite-btn:hover {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.voice-favorite-btn.favorited {
+  background: #fbbf24;
+  border-color: #f59e0b;
+  color: white;
+}
+
+.voice-favorite-btn.favorited:hover {
+  background: #f59e0b;
+}
+
 .voice-preview-btn {
   padding: 6px 12px;
   background: #667eea;
@@ -803,6 +832,62 @@ button:disabled {
   font-size: 14px;
   margin-bottom: 16px;
   line-height: 1.5;
+}
+
+/* Favorites Management Styles */
+.favorites-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.favorites-count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.favorites-count span {
+  color: #667eea;
+  font-size: 18px;
+}
+
+.favorites-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.btn-outline {
+  padding: 8px 16px;
+  background: transparent;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #4a5568;
+}
+
+.btn-outline:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+  color: #667eea;
 }
 
 /* Responsive Design */

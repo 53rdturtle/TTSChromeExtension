@@ -112,10 +112,18 @@ class OptionsController {
     document.getElementById('stopVoiceTest').addEventListener('click', this.stopVoiceTest.bind(this));
     document.getElementById('compareVoices').addEventListener('click', this.compareVoices.bind(this));
     
-    // Voice preferences
+    // Voice preferences (favorites are automatic)
     document.getElementById('autoSelectBestVoice').addEventListener('change', () => this.markUnsaved());
     document.getElementById('showVoiceCompatibility').addEventListener('change', this.toggleCompatibilityDisplay.bind(this));
     document.getElementById('rememberVoicePerLanguage').addEventListener('change', () => this.markUnsaved());
+    
+    // Favorites management
+    document.getElementById('voiceFavoriteFilter').addEventListener('change', this.filterVoices.bind(this));
+    document.getElementById('clearAllFavorites').addEventListener('click', this.clearAllFavorites.bind(this));
+    document.getElementById('addDefaultFavorites').addEventListener('click', this.addDefaultFavorites.bind(this));
+    document.getElementById('favoriteAllEnglish').addEventListener('click', this.favoriteAllEnglish.bind(this));
+    document.getElementById('favoriteAllGoogle').addEventListener('click', this.favoriteAllGoogle.bind(this));
+    document.getElementById('favoriteAllNeural').addEventListener('click', this.favoriteAllNeural.bind(this));
 
     // Highlighting tab
     document.getElementById('fullSelectionEnabled').addEventListener('change', this.toggleFullSelectionStyles.bind(this));
@@ -178,6 +186,7 @@ class OptionsController {
         'defaultVoice',
         'savedVoice', // Popup saves voice as 'savedVoice'
         'defaultRate',
+        'favoriteVoices', // New: favorite voices list
         'googleTTSEnabled',
         'googleAPIKey',
         'googleVoiceQuality',
@@ -224,6 +233,7 @@ class OptionsController {
           },
           defaultVoice: result.savedVoice || result.defaultVoice || '',
           defaultRate: result.defaultRate || 1.0,
+          favoriteVoices: result.favoriteVoices || [],
           googleTTSEnabled: result.googleTTSEnabled || false,
           googleAPIKey: result.googleAPIKey || '',
           googleVoiceQuality: result.googleVoiceQuality || 'neural2',
@@ -371,6 +381,11 @@ class OptionsController {
 
     document.getElementById('autoScroll').checked = highlighting.global.autoScroll;
     document.getElementById('animationEffects').checked = highlighting.global.animationEffects;
+
+    // Voice preferences (favorites are managed automatically)
+    
+    // Update favorites count display
+    this.updateFavoritesCount();
 
     // Google TTS tab
     document.getElementById('googleTTSEnabled').checked = this.settings.googleTTSEnabled;
@@ -558,6 +573,7 @@ class OptionsController {
   async saveSettings() {
     const formData = this.collectFormData();
     
+    
     try {
       await chrome.storage.sync.set(formData);
       this.settings = { ...this.settings, ...formData };
@@ -603,6 +619,7 @@ class OptionsController {
       defaultVoice: document.getElementById('defaultVoice').value,
       savedVoice: document.getElementById('defaultVoice').value, // Save to both keys for compatibility
       defaultRate: parseFloat(document.getElementById('defaultRate').value),
+      favoriteVoices: this.settings.favoriteVoices, // Favorites are managed separately
       googleTTSEnabled: document.getElementById('googleTTSEnabled').checked,
       googleAPIKey: document.getElementById('googleAPIKey').value,
       googleVoiceQuality: document.getElementById('googleVoiceQuality').value,
@@ -837,6 +854,7 @@ class OptionsController {
     const qualityFilter = document.getElementById('voiceQualityFilter').value;
     const genderFilter = document.getElementById('voiceGenderFilter').value;
     const serviceFilter = document.getElementById('voiceServiceFilter').value;
+    const favoriteFilter = document.getElementById('voiceFavoriteFilter').value;
 
     this.filteredVoices = this.voices.filter(voice => {
       if (langFilter && voice.lang !== langFilter) return false;
@@ -845,6 +863,11 @@ class OptionsController {
       if (serviceFilter) {
         const isGoogle = voice.isGoogle ? 'google' : 'chrome';
         if (isGoogle !== serviceFilter) return false;
+      }
+      if (favoriteFilter === 'favorites') {
+        if (!this.settings.favoriteVoices.includes(voice.name)) return false;
+      } else if (favoriteFilter === 'non-favorites') {
+        if (this.settings.favoriteVoices.includes(voice.name)) return false;
       }
       return true;
     });
@@ -878,6 +901,7 @@ class OptionsController {
 
     const qualityBadge = this.getQualityBadge(voice.quality, voice.isGoogle);
     const genderIcon = this.getGenderIcon(voice.gender);
+    const isFavorite = this.settings.favoriteVoices.includes(voice.name);
 
     item.innerHTML = `
       <div class="voice-info">
@@ -890,12 +914,19 @@ class OptionsController {
         </div>
       </div>
       <div class="voice-actions">
+        <button class="voice-favorite-btn ${isFavorite ? 'favorited' : ''}" data-voice-index="${index}" title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+          ${isFavorite ? '⭐' : '☆'}
+        </button>
         <button class="voice-preview-btn" data-voice-index="${index}">🔊 Preview</button>
       </div>
     `;
 
     // Add click handlers
     item.addEventListener('click', () => this.selectVoice(index));
+    item.querySelector('.voice-favorite-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleVoiceFavorite(voice.name);
+    });
     item.querySelector('.voice-preview-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       this.previewVoice(voice);
@@ -1013,6 +1044,152 @@ class OptionsController {
     // For now, just trigger a re-render
     this.renderVoiceList();
     this.markUnsaved();
+  }
+
+  // Favorites Management Methods
+  async toggleVoiceFavorite(voiceName) {
+    if (!voiceName) return;
+
+    const favorites = [...this.settings.favoriteVoices];
+    const index = favorites.indexOf(voiceName);
+
+    if (index > -1) {
+      // Remove from favorites
+      favorites.splice(index, 1);
+    } else {
+      // Add to favorites
+      favorites.push(voiceName);
+    }
+
+    // Update settings
+    this.settings.favoriteVoices = favorites;
+    
+    // Save to storage immediately
+    await chrome.storage.sync.set({ favoriteVoices: favorites });
+
+    // Update UI
+    this.updateFavoritesCount();
+    this.renderVoiceList(); // Re-render to update favorite buttons
+    this.markUnsaved();
+
+    const action = index > -1 ? 'removed from' : 'added to';
+    this.showNotification(`Voice ${action} favorites`, 'success');
+  }
+
+  async clearAllFavorites() {
+    if (!confirm('Are you sure you want to clear all favorite voices?')) {
+      return;
+    }
+
+    this.settings.favoriteVoices = [];
+    await chrome.storage.sync.set({ favoriteVoices: [] });
+
+    this.updateFavoritesCount();
+    this.renderVoiceList();
+    this.markUnsaved();
+    this.showNotification('All favorites cleared', 'success');
+  }
+
+  async addDefaultFavorites() {
+    // Add recommended high-quality voices as favorites
+    const recommendedVoices = [
+      'en-US-Neural2-F', 'en-US-Neural2-D', 'en-US-Neural2-A', // Google Neural2 English
+      'en-GB-Neural2-A', 'en-GB-Neural2-B', // Google Neural2 British
+      'Microsoft Zira Desktop - English (United States)', // Chrome US
+      'Microsoft David Desktop - English (United States)', // Chrome US
+      'Google UK English Female', 'Google UK English Male', // Chrome UK
+      'Google US English', 'Google français' // Chrome multilingual
+    ];
+
+    const existingVoiceNames = this.voices.map(v => v.name);
+    const availableRecommended = recommendedVoices.filter(name => 
+      existingVoiceNames.includes(name) && 
+      !this.settings.favoriteVoices.includes(name)
+    );
+
+    if (availableRecommended.length === 0) {
+      this.showNotification('No additional recommended voices to add', 'info');
+      return;
+    }
+
+    // Add to existing favorites
+    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...availableRecommended];
+    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
+
+    this.updateFavoritesCount();
+    this.renderVoiceList();
+    this.markUnsaved();
+    this.showNotification(`Added ${availableRecommended.length} recommended voices to favorites`, 'success');
+  }
+
+  async favoriteAllEnglish() {
+    const englishVoices = this.voices.filter(voice => 
+      voice.lang.startsWith('en-') && 
+      !this.settings.favoriteVoices.includes(voice.name)
+    );
+
+    if (englishVoices.length === 0) {
+      this.showNotification('All English voices are already favorited', 'info');
+      return;
+    }
+
+    const englishVoiceNames = englishVoices.map(v => v.name);
+    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...englishVoiceNames];
+    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
+
+    this.updateFavoritesCount();
+    this.renderVoiceList();
+    this.markUnsaved();
+    this.showNotification(`Added ${englishVoices.length} English voices to favorites`, 'success');
+  }
+
+  async favoriteAllGoogle() {
+    const googleVoices = this.voices.filter(voice => 
+      voice.isGoogle && 
+      !this.settings.favoriteVoices.includes(voice.name)
+    );
+
+    if (googleVoices.length === 0) {
+      this.showNotification('All Google voices are already favorited', 'info');
+      return;
+    }
+
+    const googleVoiceNames = googleVoices.map(v => v.name);
+    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...googleVoiceNames];
+    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
+
+    this.updateFavoritesCount();
+    this.renderVoiceList();
+    this.markUnsaved();
+    this.showNotification(`Added ${googleVoices.length} Google voices to favorites`, 'success');
+  }
+
+  async favoriteAllNeural() {
+    const neuralVoices = this.voices.filter(voice => 
+      voice.quality === 'Neural2' && 
+      !this.settings.favoriteVoices.includes(voice.name)
+    );
+
+    if (neuralVoices.length === 0) {
+      this.showNotification('All Neural2 voices are already favorited', 'info');
+      return;
+    }
+
+    const neuralVoiceNames = neuralVoices.map(v => v.name);
+    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...neuralVoiceNames];
+    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
+
+    this.updateFavoritesCount();
+    this.renderVoiceList();
+    this.markUnsaved();
+    this.showNotification(`Added ${neuralVoices.length} Neural2 voices to favorites`, 'success');
+  }
+
+  updateFavoritesCount() {
+    const countElement = document.getElementById('favoritesCount');
+    if (countElement) {
+      countElement.textContent = this.settings.favoriteVoices.length;
+    }
   }
 }
 

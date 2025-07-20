@@ -141,6 +141,15 @@
                   <option value="google">Google Cloud TTS</option>
                 </select>
               </div>
+              
+              <div class="filter-row">
+                <label for="voiceFavoriteFilter">Favorites:</label>
+                <select id="voiceFavoriteFilter">
+                  <option value="">All Voices</option>
+                  <option value="favorites">⭐ Favorites Only</option>
+                  <option value="non-favorites">◯ Non-Favorites Only</option>
+                </select>
+              </div>
             </div>
             
             <div class="voice-list-container">
@@ -158,6 +167,7 @@
 
         <div class="setting-section">
           <h3>Voice Preferences</h3>
+          
           
           <div class="setting-item">
             <label class="checkbox-label">
@@ -184,6 +194,30 @@
               Remember voice preference per language
             </label>
             <span class="setting-note">Use different default voices for different languages</span>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Favorites Management</h3>
+          <p class="setting-description">Click the ⭐ icon next to any voice in the browser above to add it to your favorites. When you have favorites, the popup will automatically show only those voices for faster selection.</p>
+          
+          <div class="favorites-summary">
+            <div class="favorites-count">
+              <span id="favoritesCount">0</span> favorite voices selected
+            </div>
+            <div class="favorites-actions">
+              <button id="clearAllFavorites" class="btn-secondary">Clear All Favorites</button>
+              <button id="addDefaultFavorites" class="btn-secondary">Add Recommended Favorites</button>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label>Quick Actions:</label>
+            <div class="quick-actions">
+              <button id="favoriteAllEnglish" class="btn-outline">⭐ All English Voices</button>
+              <button id="favoriteAllGoogle" class="btn-outline">⭐ All Google Voices</button>
+              <button id="favoriteAllNeural" class="btn-outline">⭐ All Neural2 Voices</button>
+            </div>
           </div>
         </div>
 

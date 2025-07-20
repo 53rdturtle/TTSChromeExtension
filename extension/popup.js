@@ -8,6 +8,13 @@ class TTSController {
     this.loadSavedData().then(() => {
       this.populateVoices();
     });
+    
+    // Listen for storage changes to refresh voice list if favorites change
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'sync' && changes.favoriteVoices) {
+        this.populateVoices();
+      }
+    });
   }
 
   // Initialize DOM elements (simplified)
@@ -71,8 +78,33 @@ class TTSController {
   populateVoices() {
     chrome.runtime.sendMessage({ type: 'getVoices' }, (response) => {
       if (response && response.voices) {
-        this.populateVoiceOptions(response.voices);
-        this.elements.previewVoiceBtn.disabled = false;
+        // Check if there are favorite voices - if so, show only favorites
+        chrome.storage.sync.get(['favoriteVoices', 'savedVoice'], (settings) => {
+          let voicesToShow = response.voices;
+          
+          if (settings.favoriteVoices && settings.favoriteVoices.length > 0) {
+            // Filter to only show favorite voices
+            const favoriteVoices = response.voices.filter(voice => 
+              settings.favoriteVoices.includes(voice.name)
+            );
+            
+            // If matching favorites exist, use them
+            if (favoriteVoices.length > 0) {
+              voicesToShow = favoriteVoices;
+              
+              // Always include the currently selected voice if it exists and isn't already included
+              if (settings.savedVoice) {
+                const selectedVoice = response.voices.find(voice => voice.name === settings.savedVoice);
+                if (selectedVoice && !voicesToShow.find(voice => voice.name === settings.savedVoice)) {
+                  voicesToShow.unshift(selectedVoice); // Add to beginning of list
+                }
+              }
+            }
+          }
+          
+          this.populateVoiceOptions(voicesToShow);
+          this.elements.previewVoiceBtn.disabled = false;
+        });
       }
     });
   }
