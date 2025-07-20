@@ -29,37 +29,93 @@ class OptionsController {
 
     tabButtons.forEach(button => {
       button.addEventListener('click', (e) => {
-        const tabId = e.target.dataset.tab;
-        this.switchTab(tabId);
+        // Find the actual button element (in case user clicked on icon or label)
+        const buttonElement = e.target.closest('.tab-btn');
+        const tabId = buttonElement ? buttonElement.dataset.tab : e.target.dataset.tab;
+        if (tabId) {
+          this.switchTab(tabId);
+        }
       });
     });
   }
 
   switchTab(tabId) {
+    console.log('Switching to tab:', tabId); // Debug log
+    
+    if (!tabId) {
+      console.error('No tabId provided to switchTab');
+      return;
+    }
+    
     // Update active tab button
+    let foundActiveButton = false;
     document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
+      const isActive = btn.dataset.tab === tabId;
+      btn.classList.toggle('active', isActive);
+      if (isActive) foundActiveButton = true;
     });
+    
+    if (!foundActiveButton) {
+      console.warn(`No button found for tab: ${tabId}`);
+    }
 
     // Update active tab panel
+    let foundActivePanel = false;
     document.querySelectorAll('.tab-panel').forEach(panel => {
-      panel.classList.toggle('active', panel.id === `${tabId}-tab`);
+      const isActive = panel.id === `${tabId}-tab`;
+      panel.classList.toggle('active', isActive);
+      if (isActive) {
+        foundActivePanel = true;
+        console.log(`Activated panel: ${panel.id}`); // Debug log
+      }
     });
+    
+    if (!foundActivePanel) {
+      console.error(`No panel found for tab: ${tabId}-tab`);
+      // Fallback: show the first panel if none matched
+      const firstPanel = document.querySelector('.tab-panel');
+      if (firstPanel) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        firstPanel.classList.add('active');
+        console.log('Fallback: showing first panel');
+      }
+    }
 
     this.currentTab = tabId;
 
     // Load tab-specific data
     if (tabId === 'google-tts') {
       this.updateQuotaDisplay();
+    } else if (tabId === 'voices') {
+      this.loadVoiceBrowser();
     }
   }
 
   // Event Listeners
   setupEventListeners() {
-    // General tab
+    // General tab (moved to voices tab)
+    // Voice selection tab
     document.getElementById('defaultVoice').addEventListener('change', () => this.markUnsaved());
     document.getElementById('defaultRate').addEventListener('input', this.updateRateDisplay.bind(this));
     document.getElementById('previewDefaultVoice').addEventListener('click', this.previewDefaultVoice.bind(this));
+    
+    // Voice browser filters
+    document.getElementById('voiceLanguageFilter').addEventListener('change', this.filterVoices.bind(this));
+    document.getElementById('voiceQualityFilter').addEventListener('change', this.filterVoices.bind(this));
+    document.getElementById('voiceGenderFilter').addEventListener('change', this.filterVoices.bind(this));
+    document.getElementById('voiceServiceFilter').addEventListener('change', this.filterVoices.bind(this));
+    document.getElementById('refreshVoices').addEventListener('click', this.refreshVoices.bind(this));
+    
+    // Voice testing
+    document.getElementById('testRate').addEventListener('input', this.updateTestRateDisplay.bind(this));
+    document.getElementById('testSelectedVoice').addEventListener('click', this.testSelectedVoice.bind(this));
+    document.getElementById('stopVoiceTest').addEventListener('click', this.stopVoiceTest.bind(this));
+    document.getElementById('compareVoices').addEventListener('click', this.compareVoices.bind(this));
+    
+    // Voice preferences
+    document.getElementById('autoSelectBestVoice').addEventListener('change', () => this.markUnsaved());
+    document.getElementById('showVoiceCompatibility').addEventListener('change', this.toggleCompatibilityDisplay.bind(this));
+    document.getElementById('rememberVoicePerLanguage').addEventListener('change', () => this.markUnsaved());
 
     // Highlighting tab
     document.getElementById('fullSelectionEnabled').addEventListener('change', this.toggleFullSelectionStyles.bind(this));
@@ -120,6 +176,7 @@ class OptionsController {
       chrome.storage.sync.get([
         'highlightingSettings',
         'defaultVoice',
+        'savedVoice', // Popup saves voice as 'savedVoice'
         'defaultRate',
         'googleTTSEnabled',
         'googleAPIKey',
@@ -140,6 +197,8 @@ class OptionsController {
         'maxCacheSize',
         'debugMode'
       ], (result) => {
+        console.log('Raw storage result:', result); // Debug logging
+        
         this.settings = {
           highlightingSettings: result.highlightingSettings || {
             fullSelection: {
@@ -163,7 +222,7 @@ class OptionsController {
               animationEffects: true
             }
           },
-          defaultVoice: result.defaultVoice || '',
+          defaultVoice: result.savedVoice || result.defaultVoice || '',
           defaultRate: result.defaultRate || 1.0,
           googleTTSEnabled: result.googleTTSEnabled || false,
           googleAPIKey: result.googleAPIKey || '',
@@ -221,6 +280,21 @@ class OptionsController {
 
       select.appendChild(optGroup);
     });
+
+    // Restore the previously selected voice after populating the dropdown
+    console.log('Available voices in dropdown:', Array.from(select.options).map(opt => opt.value));
+    console.log('Attempting to restore voice:', this.settings.defaultVoice);
+    
+    if (this.settings.defaultVoice) {
+      select.value = this.settings.defaultVoice;
+      console.log('Voice dropdown value after setting:', select.value);
+      console.log('Successfully restored voice selection:', this.settings.defaultVoice);
+    } else {
+      console.log('No default voice setting found, available settings:', this.settings);
+    }
+    
+    // Mark voices as loaded
+    this.voicesLoaded = true;
   }
 
   groupVoicesByLanguage(voices) {
@@ -277,8 +351,7 @@ class OptionsController {
   }
 
   populateForm() {
-    // General tab
-    document.getElementById('defaultVoice').value = this.settings.defaultVoice;
+    // General tab (defaultVoice is now set in populateVoiceSelect after voices load)
     document.getElementById('defaultRate').value = this.settings.defaultRate;
     document.getElementById('announceStatus').checked = this.settings.announceStatus;
     document.getElementById('highContrast').checked = this.settings.highContrast;
@@ -528,6 +601,7 @@ class OptionsController {
         }
       },
       defaultVoice: document.getElementById('defaultVoice').value,
+      savedVoice: document.getElementById('defaultVoice').value, // Save to both keys for compatibility
       defaultRate: parseFloat(document.getElementById('defaultRate').value),
       googleTTSEnabled: document.getElementById('googleTTSEnabled').checked,
       googleAPIKey: document.getElementById('googleAPIKey').value,
@@ -692,6 +766,253 @@ class OptionsController {
       const isValid = !value || /^[A-Za-z0-9_-]+$/.test(value);
       apiKeyInput.classList.toggle('invalid', !isValid);
     });
+  }
+
+  // Voice Selection Tab Methods
+  async loadVoiceBrowser() {
+    if (!this.voicesLoaded) {
+      await this.loadVoices();
+    }
+    this.populateVoiceFilters();
+    this.renderVoiceList();
+  }
+
+  populateVoiceFilters() {
+    const languages = new Set();
+    const qualities = new Set();
+    const genders = new Set();
+    const services = new Set();
+
+    this.voices.forEach(voice => {
+      languages.add(voice.lang);
+      qualities.add(voice.quality);
+      genders.add(voice.gender);
+      services.add(voice.isGoogle ? 'google' : 'chrome');
+    });
+
+    // Populate language filter
+    const langFilter = document.getElementById('voiceLanguageFilter');
+    langFilter.innerHTML = '<option value="">All Languages</option>';
+    Array.from(languages).sort().forEach(lang => {
+      const option = document.createElement('option');
+      option.value = lang;
+      option.textContent = this.getLanguageDisplayName(lang);
+      langFilter.appendChild(option);
+    });
+
+    // Populate gender filter (if not already done)
+    const genderFilter = document.getElementById('voiceGenderFilter');
+    genderFilter.innerHTML = '<option value="">All Genders</option>';
+    Array.from(genders).forEach(gender => {
+      if (gender && gender !== 'unknown') {
+        const option = document.createElement('option');
+        option.value = gender;
+        option.textContent = gender === 'male' ? '♂ Male' : 
+                            gender === 'female' ? '♀ Female' : '◇ Neutral';
+        genderFilter.appendChild(option);
+      }
+    });
+  }
+
+  getLanguageDisplayName(langCode) {
+    const languages = {
+      'en-US': 'English (US)',
+      'en-GB': 'English (UK)',
+      'en-AU': 'English (Australia)',
+      'es-ES': 'Spanish (Spain)',
+      'es-US': 'Spanish (US)',
+      'fr-FR': 'French',
+      'de-DE': 'German',
+      'it-IT': 'Italian',
+      'ja-JP': 'Japanese',
+      'ko-KR': 'Korean',
+      'zh-CN': 'Chinese (Simplified)',
+      'pt-BR': 'Portuguese (Brazil)'
+    };
+    return languages[langCode] || langCode;
+  }
+
+  filterVoices() {
+    const langFilter = document.getElementById('voiceLanguageFilter').value;
+    const qualityFilter = document.getElementById('voiceQualityFilter').value;
+    const genderFilter = document.getElementById('voiceGenderFilter').value;
+    const serviceFilter = document.getElementById('voiceServiceFilter').value;
+
+    this.filteredVoices = this.voices.filter(voice => {
+      if (langFilter && voice.lang !== langFilter) return false;
+      if (qualityFilter && voice.quality !== qualityFilter) return false;
+      if (genderFilter && voice.gender !== genderFilter) return false;
+      if (serviceFilter) {
+        const isGoogle = voice.isGoogle ? 'google' : 'chrome';
+        if (isGoogle !== serviceFilter) return false;
+      }
+      return true;
+    });
+
+    this.renderVoiceList();
+  }
+
+  renderVoiceList() {
+    const voiceList = document.getElementById('voiceList');
+    const voiceCount = document.getElementById('voiceCount');
+    const voices = this.filteredVoices || this.voices;
+
+    voiceCount.textContent = `${voices.length} voices found`;
+
+    if (voices.length === 0) {
+      voiceList.innerHTML = '<div class="loading-voices">No voices match the current filters</div>';
+      return;
+    }
+
+    voiceList.innerHTML = '';
+    voices.forEach((voice, index) => {
+      const voiceItem = this.createVoiceItem(voice, index);
+      voiceList.appendChild(voiceItem);
+    });
+  }
+
+  createVoiceItem(voice, index) {
+    const item = document.createElement('div');
+    item.className = 'voice-item';
+    item.dataset.voiceIndex = index;
+
+    const qualityBadge = this.getQualityBadge(voice.quality, voice.isGoogle);
+    const genderIcon = this.getGenderIcon(voice.gender);
+
+    item.innerHTML = `
+      <div class="voice-info">
+        <div class="voice-name">${voice.name}</div>
+        <div class="voice-details">
+          <span>${qualityBadge} ${voice.quality}</span>
+          <span>${genderIcon} ${voice.gender || 'Unknown'}</span>
+          <span>${voice.lang}</span>
+          <span>${voice.isGoogle ? '🚀 Google' : '🌐 Chrome'}</span>
+        </div>
+      </div>
+      <div class="voice-actions">
+        <button class="voice-preview-btn" data-voice-index="${index}">🔊 Preview</button>
+      </div>
+    `;
+
+    // Add click handlers
+    item.addEventListener('click', () => this.selectVoice(index));
+    item.querySelector('.voice-preview-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.previewVoice(voice);
+    });
+
+    return item;
+  }
+
+  getQualityBadge(quality, isGoogle) {
+    if (!isGoogle) return '📻';
+    
+    const badges = {
+      'Chirp3': '🎭',
+      'Neural2': '🎵',
+      'Studio': '🎬',
+      'WaveNet': '🌊',
+      'Standard': '📻'
+    };
+    return badges[quality] || '📻';
+  }
+
+  getGenderIcon(gender) {
+    const icons = {
+      'male': '♂',
+      'female': '♀',
+      'neutral': '◇'
+    };
+    return icons[gender] || '';
+  }
+
+  selectVoice(index) {
+    // Clear previous selection
+    document.querySelectorAll('.voice-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+
+    // Select new voice
+    const voiceItem = document.querySelector(`[data-voice-index="${index}"]`);
+    if (voiceItem) {
+      voiceItem.classList.add('selected');
+      this.selectedVoiceIndex = index;
+    }
+  }
+
+  async previewVoice(voice) {
+    const testText = document.getElementById('testText').value || 
+                    'This is a preview of the selected voice.';
+    const rate = parseFloat(document.getElementById('testRate').value) || 1.0;
+
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'speak',
+        text: testText,
+        voiceName: voice.name,
+        rate: rate
+      });
+    } catch (error) {
+      console.error('Error previewing voice:', error);
+      this.showNotification('Error previewing voice', 'error');
+    }
+  }
+
+  async refreshVoices() {
+    const refreshBtn = document.getElementById('refreshVoices');
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '🔄 Refreshing...';
+
+    try {
+      this.voicesLoaded = false;
+      await this.loadVoices();
+      this.populateVoiceFilters();
+      this.renderVoiceList();
+      this.showNotification('Voices refreshed successfully', 'success');
+    } catch (error) {
+      console.error('Error refreshing voices:', error);
+      this.showNotification('Error refreshing voices', 'error');
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '🔄 Refresh';
+    }
+  }
+
+  updateTestRateDisplay() {
+    const rate = document.getElementById('testRate').value;
+    document.getElementById('testRateValue').textContent = `${rate}x`;
+  }
+
+  async testSelectedVoice() {
+    if (this.selectedVoiceIndex === undefined) {
+      this.showNotification('Please select a voice to test', 'warning');
+      return;
+    }
+
+    const voices = this.filteredVoices || this.voices;
+    const selectedVoice = voices[this.selectedVoiceIndex];
+    await this.previewVoice(selectedVoice);
+  }
+
+  async stopVoiceTest() {
+    try {
+      await chrome.runtime.sendMessage({ type: 'stop' });
+    } catch (error) {
+      console.error('Error stopping voice test:', error);
+    }
+  }
+
+  async compareVoices() {
+    // This would open a modal or expanded view to compare multiple voices
+    this.showNotification('Voice comparison feature coming soon!', 'info');
+  }
+
+  toggleCompatibilityDisplay() {
+    const showCompatibility = document.getElementById('showVoiceCompatibility').checked;
+    // This would toggle the display of compatibility indicators in the voice list
+    // For now, just trigger a re-render
+    this.renderVoiceList();
+    this.markUnsaved();
   }
 }
 

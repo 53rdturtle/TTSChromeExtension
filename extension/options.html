@@ -13,39 +13,38 @@
       <p>Configure your text-to-speech preferences and highlighting options</p>
     </header>
 
-    <!-- Tab Navigation -->
-    <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="general">General</button>
-      <button class="tab-btn" data-tab="highlighting">Highlighting</button>
-      <button class="tab-btn" data-tab="google-tts">Google TTS</button>
-      <button class="tab-btn" data-tab="advanced">Advanced</button>
-    </nav>
+    <div class="main-layout">
+      <!-- Left Sidebar Navigation -->
+      <nav class="sidebar-nav">
+        <button class="tab-btn active" data-tab="general">
+          <span class="tab-icon">⚙️</span>
+          <span class="tab-label">General</span>
+        </button>
+        <button class="tab-btn" data-tab="voices">
+          <span class="tab-icon">🎙️</span>
+          <span class="tab-label">Voice Selection</span>
+        </button>
+        <button class="tab-btn" data-tab="highlighting">
+          <span class="tab-icon">🎨</span>
+          <span class="tab-label">Highlighting</span>
+        </button>
+        <button class="tab-btn" data-tab="google-tts">
+          <span class="tab-icon">🚀</span>
+          <span class="tab-label">Google TTS</span>
+        </button>
+        <button class="tab-btn" data-tab="advanced">
+          <span class="tab-icon">🔧</span>
+          <span class="tab-label">Advanced</span>
+        </button>
+      </nav>
 
-    <!-- Tab Content -->
-    <main class="tab-content">
+      <!-- Main Content Area -->
+      <main class="tab-content">
       
       <!-- General Tab -->
       <section id="general-tab" class="tab-panel active">
         <h2>General Settings</h2>
         
-        <div class="setting-section">
-          <h3>Default Voice Settings</h3>
-          
-          <div class="setting-item">
-            <label for="defaultVoice">Default Voice:</label>
-            <select id="defaultVoice" class="setting-select">
-              <option value="">Loading voices...</option>
-            </select>
-            <button id="previewDefaultVoice" class="btn-secondary">🔊 Preview</button>
-          </div>
-          
-          <div class="setting-item">
-            <label for="defaultRate">Default Speech Rate:</label>
-            <input type="range" id="defaultRate" min="0.5" max="2.0" step="0.1" value="1.0">
-            <span id="defaultRateValue">1.0x</span>
-          </div>
-        </div>
-
         <div class="setting-section">
           <h3>Keyboard Shortcuts</h3>
           
@@ -73,6 +72,139 @@
               <span class="checkmark"></span>
               High contrast highlighting
             </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Voice Selection Tab -->
+      <section id="voices-tab" class="tab-panel">
+        <h2>Voice Selection & Management</h2>
+        
+        <div class="setting-section">
+          <h3>Default Voice Settings</h3>
+          
+          <div class="setting-item">
+            <label for="defaultVoice">Default Voice:</label>
+            <select id="defaultVoice" class="setting-select">
+              <option value="">Loading voices...</option>
+            </select>
+            <button id="previewDefaultVoice" class="btn-secondary">🔊 Preview</button>
+          </div>
+          
+          <div class="setting-item">
+            <label for="defaultRate">Default Speech Rate:</label>
+            <input type="range" id="defaultRate" min="0.5" max="2.0" step="0.1" value="1.0">
+            <span id="defaultRateValue">1.0x</span>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Voice Browser</h3>
+          <p class="setting-description">Browse and test all available voices with quality indicators and compatibility info.</p>
+          
+          <div class="voice-browser">
+            <div class="voice-filters">
+              <div class="filter-row">
+                <label for="voiceLanguageFilter">Language:</label>
+                <select id="voiceLanguageFilter">
+                  <option value="">All Languages</option>
+                </select>
+              </div>
+              
+              <div class="filter-row">
+                <label for="voiceQualityFilter">Quality:</label>
+                <select id="voiceQualityFilter">
+                  <option value="">All Qualities</option>
+                  <option value="Chirp3">🎭 Chirp 3: HD</option>
+                  <option value="Neural2">🎵 Neural2</option>
+                  <option value="Studio">🎬 Studio</option>
+                  <option value="WaveNet">🌊 WaveNet</option>
+                  <option value="Standard">📻 Standard</option>
+                </select>
+              </div>
+              
+              <div class="filter-row">
+                <label for="voiceGenderFilter">Gender:</label>
+                <select id="voiceGenderFilter">
+                  <option value="">All Genders</option>
+                  <option value="male">♂ Male</option>
+                  <option value="female">♀ Female</option>
+                  <option value="neutral">◇ Neutral</option>
+                </select>
+              </div>
+              
+              <div class="filter-row">
+                <label for="voiceServiceFilter">Service:</label>
+                <select id="voiceServiceFilter">
+                  <option value="">All Services</option>
+                  <option value="chrome">Chrome TTS</option>
+                  <option value="google">Google Cloud TTS</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="voice-list-container">
+              <div class="voice-list-header">
+                <span class="voice-count" id="voiceCount">Loading voices...</span>
+                <button id="refreshVoices" class="btn-secondary">🔄 Refresh</button>
+              </div>
+              
+              <div class="voice-list" id="voiceList">
+                <div class="loading-voices">Loading available voices...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Voice Preferences</h3>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoSelectBestVoice">
+              <span class="checkmark"></span>
+              Auto-select highest quality voice for each language
+            </label>
+            <span class="setting-note">Automatically chooses Neural2 > WaveNet > Standard voices</span>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="showVoiceCompatibility">
+              <span class="checkmark"></span>
+              Show highlighting compatibility indicators
+            </label>
+            <span class="setting-note">Display which highlighting modes work with each voice</span>
+          </div>
+          
+          <div class="setting-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="rememberVoicePerLanguage">
+              <span class="checkmark"></span>
+              Remember voice preference per language
+            </label>
+            <span class="setting-note">Use different default voices for different languages</span>
+          </div>
+        </div>
+
+        <div class="setting-section">
+          <h3>Voice Testing</h3>
+          
+          <div class="setting-item">
+            <label for="testText">Test Text:</label>
+            <textarea id="testText" rows="3" placeholder="Enter text to test voices with...">This is a sample text to test how different voices sound. You can change this text to test with your own content.</textarea>
+          </div>
+          
+          <div class="setting-item">
+            <label for="testRate">Test Speech Rate:</label>
+            <input type="range" id="testRate" min="0.5" max="2.0" step="0.1" value="1.0">
+            <span id="testRateValue">1.0x</span>
+          </div>
+          
+          <div class="voice-test-actions">
+            <button id="testSelectedVoice" class="btn-primary">🎙️ Test Selected Voice</button>
+            <button id="stopVoiceTest" class="btn-secondary">⏹️ Stop Test</button>
+            <button id="compareVoices" class="btn-secondary">⚖️ Compare Multiple Voices</button>
           </div>
         </div>
       </section>
@@ -377,7 +509,8 @@
           </div>
         </div>
       </section>
-    </main>
+      </main>
+    </div>
 
     <!-- Footer -->
     <footer class="options-footer">
