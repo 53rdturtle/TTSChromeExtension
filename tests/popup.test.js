@@ -492,5 +492,79 @@ describe('TTSController', () => {
       expect(controller.formatCompatibilityText(fullCompatibility)).toBe('[F✓ S✓ W✓]');
       expect(controller.formatCompatibilityText(partialCompatibility)).toBe('[F✓ S✓ W✗]');
     });
+
+    test('should correctly detect Google TTS voice compatibility', () => {
+      // Google TTS voices support all highlighting modes via SSML marks
+      const googleVoice = { 
+        name: 'en-US-Neural2-F', 
+        lang: 'en-US', 
+        isGoogle: true, 
+        eventTypes: [] // Google TTS doesn't use Chrome eventTypes
+      };
+
+      const compatibility = controller.getVoiceCompatibility(googleVoice);
+      expect(compatibility).toEqual({
+        fullSelection: true,
+        sentence: true, // Supported via SSML marks
+        word: true      // Supported via SSML marks
+      });
+    });
+
+    test('should handle missing eventTypes for Chrome voices', () => {
+      const chromeVoiceWithoutEvents = { 
+        voiceName: 'Voice Without Events', 
+        lang: 'en-US', 
+        isGoogle: false
+        // No eventTypes property
+      };
+
+      const compatibility = controller.getVoiceCompatibility(chromeVoiceWithoutEvents);
+      expect(compatibility).toEqual({
+        fullSelection: true,
+        sentence: false, // No 'sentence' or 'start' events
+        word: false      // Requires explicit 'word' event
+      });
+    });
+
+    test('should differentiate between Google and Chrome voice capabilities', () => {
+      const googleVoice = { 
+        name: 'en-US-Neural2-F', 
+        lang: 'en-US', 
+        isGoogle: true,
+        eventTypes: []
+      };
+
+      const chromeVoiceBasic = { 
+        voiceName: 'Chrome Voice', 
+        lang: 'en-US', 
+        isGoogle: false,
+        eventTypes: ['start', 'end']
+      };
+
+      const chromeVoiceAdvanced = { 
+        voiceName: 'Advanced Chrome Voice', 
+        lang: 'en-US', 
+        isGoogle: false,
+        eventTypes: ['start', 'end', 'word', 'sentence']
+      };
+
+      expect(controller.getVoiceCompatibility(googleVoice)).toEqual({
+        fullSelection: true,
+        sentence: true,
+        word: true
+      });
+
+      expect(controller.getVoiceCompatibility(chromeVoiceBasic)).toEqual({
+        fullSelection: true,
+        sentence: true, // Has start event
+        word: false
+      });
+
+      expect(controller.getVoiceCompatibility(chromeVoiceAdvanced)).toEqual({
+        fullSelection: true,
+        sentence: true,
+        word: true
+      });
+    });
   });
 });

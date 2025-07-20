@@ -22,7 +22,8 @@
       "<rootDir>/tests/background.test.js",
       "<rootDir>/tests/popup.test.js",
       "<rootDir>/tests/integration.test.js",
-      "<rootDir>/tests/highlighting.test.js"
+      "<rootDir>/tests/highlighting.test.js",
+      "<rootDir>/tests/google-tts.test.js"
     ],
     "collectCoverageFrom": [
       "extension/**/*.js",

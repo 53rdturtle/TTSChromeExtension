@@ -26,7 +26,7 @@ class GoogleTTSService {
     return new Promise((resolve) => {
       chrome.storage.sync.get(['googleTTSEnabled', 'googleAPIKey'], (result) => {
         const enabled = result.googleTTSEnabled === true;
-        const hasKey = result.googleAPIKey && result.googleAPIKey.trim() !== '';
+        const hasKey = !!(result.googleAPIKey && result.googleAPIKey.trim() !== '');
         // console.log('🔍 Google TTS isEnabled check:', { enabled, hasKey });
         resolve(enabled && hasKey);
       });
