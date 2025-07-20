@@ -445,13 +445,20 @@ button:disabled {
   background: #e9ecef;
   border-radius: 4px;
   overflow: hidden;
+  margin-bottom: 0.5rem;
 }
 
 .quota-used {
   height: 100%;
-  background: #4caf50;
+  background: #28a745;
   transition: all 0.3s ease;
   border-radius: 4px;
+}
+
+.quota-details {
+  color: #6c757d;
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 /* Footer */

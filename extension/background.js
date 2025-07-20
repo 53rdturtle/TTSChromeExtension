@@ -583,9 +583,10 @@ class MessageHandler {
   // Handle get quota usage message
   async handleGetQuotaUsage(sendResponse) {
     try {
-      chrome.storage.local.get(['googleTTSUsage'], (result) => {
-        const usage = result.googleTTSUsage || 0;
-        sendResponse({ status: 'success', usage: usage });
+      const quotaStatus = await googleTTSService.checkQuotaStatus();
+      sendResponse({ 
+        status: 'success', 
+        quota: quotaStatus 
       });
     } catch (error) {
       sendResponse({ status: 'error', error: error.message });
@@ -657,6 +658,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     globalTTSState.showControlBar = false;
     broadcastControlBarState();
     sendResponse({ status: 'success' });
+    return true;
+  }
+  
+  // Handle quota warning messages
+  if (message.type === 'quotaWarning') {
+    sendQuotaWarningNotification(message.quotaData);
+    sendResponse({ status: 'received' });
     return true;
   }
   
@@ -902,6 +910,37 @@ chrome.runtime.onInstalled.addListener(async () => {
     console.error('Error initializing highlighting settings:', error);
   }
 });
+
+// Send quota warning notifications
+async function sendQuotaWarningNotification(quotaData) {
+  // Check if notifications are enabled
+  chrome.storage.sync.get(['quotaWarnings'], (settings) => {
+    if (settings.quotaWarnings === false) return;
+
+    let message = '';
+    let type = 'basic';
+    
+    if (quotaData.percentage >= 100) {
+      message = `Google TTS quota exceeded! ${quotaData.used.toLocaleString()} characters used this month.`;
+      type = 'basic';
+    } else if (quotaData.percentage >= 95) {
+      message = `Google TTS quota at ${quotaData.percentage.toFixed(1)}%! Consider upgrading your plan.`;
+      type = 'basic';
+    } else if (quotaData.percentage >= 80) {
+      message = `Google TTS quota at ${quotaData.percentage.toFixed(1)}%. Monitor usage carefully.`;
+      type = 'basic';
+    }
+
+    if (message) {
+      chrome.notifications.create({
+        type: type,
+        iconUrl: 'icon48.png',
+        title: 'TTS Extension - Quota Warning',
+        message: message
+      });
+    }
+  });
+}
 
 // Offscreen document management
 let offscreenDocumentCreated = false;

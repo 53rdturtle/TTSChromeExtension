@@ -389,10 +389,24 @@
           <div class="quota-display">
             <div class="quota-info">
               <span id="quotaText">Usage: Loading...</span>
-              <span id="quotaLimit">Limit: 1,000,000 characters/month (Free Tier)</span>
+              <span id="quotaLimit">Free Tier: 1,000,000 characters/month</span>
             </div>
             <div class="quota-bar">
               <div class="quota-used" id="quotaProgress" style="width: 0%"></div>
+            </div>
+            <div class="quota-details">
+              <small id="quotaDetails">Quota resets monthly. Usage tracked per character synthesized.</small>
+            </div>
+            <div class="quota-backfill" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+              <label for="backfillUsage" style="display: block; margin-bottom: 8px; font-weight: 500;">Backfill Previous Usage:</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="number" id="backfillUsage" placeholder="Characters used" min="0" max="1000000" style="flex: 1; padding: 4px 8px;">
+                <button id="applyBackfill" class="btn-secondary" style="padding: 4px 12px;">Apply</button>
+              </div>
+              <small style="color: #6c757d; margin-top: 4px; display: block;">
+                Enter estimated characters already used this month<br>
+                <strong>Estimation help:</strong> ~100 chars = 1 sentence, ~500 chars = 1 paragraph, ~2000 chars = 1 page
+              </small>
             </div>
           </div>
           

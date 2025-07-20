@@ -58,6 +58,13 @@ global.chrome = {
     sync: {
       get: jest.fn(),
       set: jest.fn()
+    },
+    local: {
+      get: jest.fn(),
+      set: jest.fn()
+    },
+    onChanged: {
+      addListener: jest.fn()
     }
   },
   tts: {
@@ -78,6 +85,9 @@ global.chrome = {
     onCommand: {
       addListener: jest.fn()
     }
+  },
+  notifications: {
+    create: jest.fn()
   }
 };
 

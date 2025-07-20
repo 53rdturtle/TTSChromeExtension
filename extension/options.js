@@ -20,6 +20,12 @@ class OptionsController {
     await this.loadVoices();
     this.populateForm();
     this.setupFormValidation();
+    await this.loadQuotaUsage();
+    
+    // Update quota every 30 seconds
+    setInterval(() => {
+      this.loadQuotaUsage();
+    }, 30000);
   }
 
   // Tab Navigation
@@ -151,6 +157,7 @@ class OptionsController {
     document.getElementById('googleAPIKey').addEventListener('input', () => this.markUnsaved());
     document.getElementById('testConnection').addEventListener('click', this.testGoogleTTSConnection.bind(this));
     document.getElementById('apiKeyHelp').addEventListener('click', this.showAPIKeyHelp.bind(this));
+    document.getElementById('applyBackfill').addEventListener('click', this.applyQuotaBackfill.bind(this));
 
     // Advanced tab
     document.getElementById('exportSettings').addEventListener('click', this.exportSettings.bind(this));
@@ -1189,6 +1196,112 @@ class OptionsController {
     const countElement = document.getElementById('favoritesCount');
     if (countElement) {
       countElement.textContent = this.settings.favoriteVoices.length;
+    }
+  }
+
+  // Quota Management
+  async loadQuotaUsage() {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'getQuotaUsage' });
+      if (response && response.status === 'success' && response.quota) {
+        this.updateQuotaDisplay(response.quota);
+      }
+    } catch (error) {
+      console.error('Error loading quota usage:', error);
+    }
+  }
+
+  updateQuotaDisplay(quotaData) {
+    // Update quota text
+    const quotaText = document.getElementById('quotaText');
+    if (quotaText) {
+      const used = this.formatNumber(quotaData.used);
+      const limit = this.formatNumber(quotaData.limit);
+      quotaText.textContent = `Usage: ${used} / ${limit} characters this month (${quotaData.percentage.toFixed(1)}%)`;
+    }
+
+    // Update quota progress bar
+    const quotaProgress = document.getElementById('quotaProgress');
+    if (quotaProgress) {
+      quotaProgress.style.width = `${Math.min(quotaData.percentage, 100)}%`;
+      
+      // Change color based on usage level
+      if (quotaData.percentage >= 95) {
+        quotaProgress.style.background = '#dc3545'; // Red for critical
+      } else if (quotaData.percentage >= 80) {
+        quotaProgress.style.background = '#ffc107'; // Yellow for warning
+      } else {
+        quotaProgress.style.background = '#28a745'; // Green for normal
+      }
+    }
+
+    // Show warning messages
+    if (quotaData.warning) {
+      this.showQuotaWarning(quotaData);
+    }
+  }
+
+  showQuotaWarning(quotaData) {
+    if (quotaData.warning === 'critical') {
+      this.showNotification(
+        `⚠️ Google TTS quota at ${quotaData.percentage.toFixed(1)}%! Consider upgrading your plan.`,
+        'warning'
+      );
+    } else if (quotaData.warning === 'high') {
+      this.showNotification(
+        `⚠️ Google TTS quota at ${quotaData.percentage.toFixed(1)}%. Monitor usage carefully.`,
+        'warning'
+      );
+    }
+  }
+
+  formatNumber(num) {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  }
+
+  async applyQuotaBackfill() {
+    const backfillInput = document.getElementById('backfillUsage');
+    const usage = parseInt(backfillInput.value);
+    
+    if (!usage || usage < 0 || usage > 1000000) {
+      this.showNotification('Please enter a valid usage amount (0-1,000,000)', 'error');
+      return;
+    }
+
+    if (!confirm(`Add ${usage.toLocaleString()} characters to this month's quota usage?`)) {
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Get current usage data
+      chrome.storage.local.get(['googleTTSUsage'], (result) => {
+        const usageData = result.googleTTSUsage || {};
+        const currentUsage = usageData[currentMonth] || 0;
+        
+        // Add backfilled amount
+        usageData[currentMonth] = currentUsage + usage;
+        
+        chrome.storage.local.set({ googleTTSUsage: usageData }, () => {
+          this.showNotification(`Added ${usage.toLocaleString()} characters to quota usage`, 'success');
+          backfillInput.value = '';
+          
+          // Refresh quota display
+          setTimeout(() => {
+            this.loadQuotaUsage();
+          }, 500);
+        });
+      });
+    } catch (error) {
+      this.showNotification('Error applying backfill', 'error');
+      console.error('Backfill error:', error);
     }
   }
 }

@@ -7,6 +7,7 @@ class TTSController {
     
     this.loadSavedData().then(() => {
       this.populateVoices();
+      this.checkQuotaStatus();
     });
     
     // Listen for storage changes to refresh voice list if favorites change
@@ -294,6 +295,39 @@ class TTSController {
   // Open advanced settings page
   openAdvancedSettings() {
     chrome.runtime.openOptionsPage();
+  }
+
+  // Check Google TTS quota status and show warnings if needed
+  async checkQuotaStatus() {
+    try {
+      // Only check if Google TTS is enabled
+      chrome.storage.sync.get(['googleTTSEnabled'], async (settings) => {
+        if (!settings.googleTTSEnabled) return;
+
+        const response = await chrome.runtime.sendMessage({ type: 'getQuotaUsage' });
+        if (response && response.status === 'success' && response.quota) {
+          this.showQuotaWarningIfNeeded(response.quota);
+        }
+      });
+    } catch (error) {
+      console.error('Error checking quota status:', error);
+    }
+  }
+
+  showQuotaWarningIfNeeded(quotaData) {
+    const statusIndicator = this.elements.statusIndicator;
+    
+    if (quotaData.percentage >= 95) {
+      statusIndicator.textContent = `⚠️ Google TTS quota at ${quotaData.percentage.toFixed(0)}%`;
+      statusIndicator.style.color = '#dc3545';
+      statusIndicator.style.display = 'block';
+    } else if (quotaData.percentage >= 80) {
+      statusIndicator.textContent = `⚠️ Google TTS quota at ${quotaData.percentage.toFixed(0)}%`;
+      statusIndicator.style.color = '#ffc107';
+      statusIndicator.style.display = 'block';
+    } else {
+      statusIndicator.style.display = 'none';
+    }
   }
 
   // Listen for speech end events

@@ -195,11 +195,107 @@ class GoogleTTSService {
     });
   }
 
+  // Track usage for quota management
+  async trackUsage(characterCount) {
+    return new Promise((resolve) => {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      chrome.storage.local.get(['googleTTSUsage'], (result) => {
+        let usage = result.googleTTSUsage || {};
+        
+        // Handle corrupted data
+        if (typeof usage !== 'object' || Array.isArray(usage)) {
+          usage = {};
+        }
+        
+        // Initialize current month if it doesn't exist
+        if (!usage[currentMonth]) {
+          usage[currentMonth] = 0;
+        }
+        
+        // Add character count to current month
+        usage[currentMonth] += characterCount;
+        
+        // Clean up old months (keep only last 3 months)
+        const months = Object.keys(usage);
+        if (months.length > 3) {
+          months.sort();
+          const toDelete = months.slice(0, months.length - 3);
+          toDelete.forEach(month => delete usage[month]);
+        }
+        
+        chrome.storage.local.set({ googleTTSUsage: usage }, () => {
+          resolve(usage[currentMonth]);
+        });
+      });
+    });
+  }
+
+  // Get current month's usage
+  async getCurrentUsage() {
+    return new Promise((resolve) => {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      chrome.storage.local.get(['googleTTSUsage'], (result) => {
+        let usage = result.googleTTSUsage || {};
+        
+        // Handle corrupted data
+        if (typeof usage !== 'object' || Array.isArray(usage)) {
+          usage = {};
+        }
+        
+        resolve({
+          used: usage[currentMonth] || 0,
+          month: currentMonth,
+          limit: 1000000 // 1M characters per month free tier
+        });
+      });
+    });
+  }
+
+  // Check if we're approaching quota limits
+  async checkQuotaStatus() {
+    const usage = await this.getCurrentUsage();
+    const percentage = (usage.used / usage.limit) * 100;
+    
+    return {
+      ...usage,
+      percentage,
+      warning: percentage >= 80 ? (percentage >= 95 ? 'critical' : 'high') : null
+    };
+  }
+
   // Full speak method that synthesizes and plays
   async speak(text, options = {}) {
     try {
+      // Check quota before synthesis
+      const quotaStatus = await this.checkQuotaStatus();
+      if (quotaStatus.percentage >= 100) {
+        throw new Error('Google TTS monthly quota exceeded. Please try again next month or upgrade your plan.');
+      }
+      
+      // Warn if approaching quota and send notification
+      if (quotaStatus.warning === 'critical') {
+        console.warn('⚠️ Google TTS quota at 95%. Consider upgrading your plan.');
+        chrome.runtime.sendMessage({ 
+          type: 'quotaWarning', 
+          quotaData: quotaStatus 
+        });
+      } else if (quotaStatus.warning === 'high') {
+        console.warn('⚠️ Google TTS quota at 80%. Monitor usage carefully.');
+        chrome.runtime.sendMessage({ 
+          type: 'quotaWarning', 
+          quotaData: quotaStatus 
+        });
+      }
+      
       // Synthesize speech
       const result = await this.synthesize(text, options);
+      
+      // Track usage after successful synthesis
+      await this.trackUsage(text.length);
       
       // Play audio
       await this.playAudio(result.audioContent);

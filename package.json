@@ -23,7 +23,11 @@
       "<rootDir>/tests/popup.test.js",
       "<rootDir>/tests/integration.test.js",
       "<rootDir>/tests/highlighting.test.js",
-      "<rootDir>/tests/google-tts.test.js"
+      "<rootDir>/tests/google-tts.test.js",
+      "<rootDir>/tests/quota-management.test.js",
+      "<rootDir>/tests/options-quota.test.js",
+      "<rootDir>/tests/background-quota.test.js",
+      "<rootDir>/tests/popup-quota.test.js"
     ],
     "collectCoverageFrom": [
       "extension/**/*.js",
