@@ -303,41 +303,29 @@ class MessageHandler {
   // Handle incoming messages
   async handleMessage(message, sender, sendResponse) {
     try {
-      // console.log('MessageHandler.handleMessage called with type:', message.type);
-      switch (message.type) {
-        case 'speak':
-          await this.handleSpeak(message, sendResponse);
-          break;
-        case 'stop':
-          await this.handleStop(sendResponse);
-          break;
-        case 'pause':
-          await this.handlePause(sendResponse);
-          break;
-        case 'resume':
-          await this.handleResume(sendResponse);
-          break;
-        case 'getVoices':
-          await this.handleGetVoices(sendResponse);
-          break;
-        case 'getStatus':
-          await this.handleGetStatus(sendResponse);
-          break;
-        case 'getSelectedText':
-          await this.handleGetSelectedText(sendResponse);
-          break;
-        case 'updateSpeed':
-          await this.handleUpdateSpeed(message, sendResponse);
-          break;
-        case 'getHighlightingSettings':
-          await this.handleGetHighlightingSettings(sendResponse);
-          break;
-        case 'saveHighlightingSettings':
-          await this.handleSaveHighlightingSettings(message, sendResponse);
-          break;
-        default:
-          console.log('Unknown message type:', message.type);
-          sendResponse({ status: 'error', error: 'Unknown message type' });
+      if (message.type === 'speak') {
+        await this.handleSpeak(message, sendResponse);
+      } else if (message.type === 'stop') {
+        await this.handleStop(sendResponse);
+      } else if (message.type === 'pause') {
+        await this.handlePause(sendResponse);
+      } else if (message.type === 'resume') {
+        await this.handleResume(sendResponse);
+      } else if (message.type === 'getVoices') {
+        await this.handleGetVoices(sendResponse);
+      } else if (message.type === 'getStatus') {
+        await this.handleGetStatus(sendResponse);
+      } else if (message.type === 'getSelectedText') {
+        await this.handleGetSelectedText(sendResponse);
+      } else if (message.type === 'updateSpeed') {
+        await this.handleUpdateSpeed(message, sendResponse);
+      } else if (message.type === 'getHighlightingSettings') {
+        await this.handleGetHighlightingSettings(sendResponse);
+      } else if (message.type === 'saveHighlightingSettings') {
+        await this.handleSaveHighlightingSettings(message, sendResponse);
+      } else {
+        console.log('Unknown message type:', message.type);
+        sendResponse({ status: 'error', error: 'Unknown message type' });
       }
     } catch (error) {
       console.error('Message handler error:', error);
@@ -433,12 +421,61 @@ class MessageHandler {
   // Handle get voices message
   async handleGetVoices(sendResponse) {
     try {
-      const voices = await this.ttsService.getVoices();
-      sendResponse({ status: 'success', voices: voices });
+      // Get Chrome TTS voices
+      const chromeVoices = await this.ttsService.getVoices();
+      
+      // Transform Chrome voices to our unified format
+      const formattedChromeVoices = chromeVoices.map(voice => ({
+        name: voice.voiceName || voice.name,
+        lang: voice.lang,
+        gender: this.extractGender(voice.voiceName || voice.name),
+        quality: 'Standard',
+        isGoogle: false,
+        eventTypes: voice.eventTypes || []
+      }));
+
+      // Get Google TTS voices if enabled
+      let googleVoices = [];
+      const googleEnabled = await googleTTSService.isEnabled();
+      if (googleEnabled) {
+        try {
+          googleVoices = await googleTTSService.getVoices();
+        } catch (googleError) {
+          console.warn('Failed to get Google TTS voices:', googleError);
+          // Continue with Chrome voices only
+        }
+      }
+
+      // Combine all voices
+      const allVoices = [...formattedChromeVoices, ...googleVoices];
+      
+      // Sort voices by language, then quality, then name
+      allVoices.sort((a, b) => {
+        if (a.lang !== b.lang) return a.lang.localeCompare(b.lang);
+        if (a.quality !== b.quality) {
+          const qualityOrder = ['Chirp3', 'Neural2', 'Studio', 'WaveNet', 'Standard'];
+          return qualityOrder.indexOf(a.quality) - qualityOrder.indexOf(b.quality);
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      sendResponse({ status: 'success', voices: allVoices });
     } catch (error) {
       console.error('Error getting voices:', error);
       sendResponse({ status: 'error', error: error });
     }
+  }
+
+  // Helper method to extract gender from Chrome voice name
+  extractGender(voiceName) {
+    const name = voiceName.toLowerCase();
+    if (name.includes('female') || name.includes('woman')) return 'female';
+    if (name.includes('male') || name.includes('man')) return 'male';
+    // Common male names
+    if (name.includes('david') || name.includes('mark') || name.includes('alex')) return 'male';
+    // Common female names  
+    if (name.includes('zira') || name.includes('hazel') || name.includes('samantha')) return 'female';
+    return 'unknown';
   }
 
   // Handle get status message
@@ -563,7 +600,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  // Return true to indicate async response
+  // Handle offscreen document messages (playGoogleTTS, stopGoogleTTS, etc.)
+  if (message.type === 'playGoogleTTS' || message.type === 'stopGoogleTTS' || 
+      message.type === 'pauseGoogleTTS' || message.type === 'resumeGoogleTTS') {
+    // These are handled by the offscreen document, but we need to acknowledge them
+    sendResponse({ status: 'received' });
+    return true;
+  }
+  
+  // All other messages go to MessageHandler
   messageHandler.handleMessage(message, sender, sendResponse);
   return true;
 });

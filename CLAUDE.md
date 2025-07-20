@@ -110,7 +110,31 @@ Each highlighting mode can be:
 - `extension/popup.js` - Added settings UI logic
 - `extension/background.js` - Added settings management
 
-#### Phase 2: Enhanced Settings Infrastructure
+#### Phase 2: Enhanced Voice Selection & Management
+**Goal**: Implement comprehensive voice selection with Google TTS integration
+
+**What we'll build:**
+- **Unified Voice List**: Combined Chrome TTS and Google TTS voices in one interface
+- **Voice Quality Indicators**: Show voice technology (Standard, WaveNet, Neural2, Chirp)
+- **Voice Preview**: Sample audio playback for voice selection
+- **Smart Voice Mapping**: Automatic fallback voice selection when switching between services
+- **Voice Persistence**: Remember voice preferences per service
+- **Voice Search/Filter**: Find voices by language, gender, or quality
+
+**Features:**
+- Voice dropdown shows both Chrome and Google voices with clear labeling
+- Quality badges (🎵 Neural2, 🌊 WaveNet, 📻 Standard)
+- Preview button to hear voice samples
+- Automatic voice switching when toggling Google TTS on/off
+- Voice compatibility warnings for unsupported features
+
+**Files to modify:**
+- `extension/popup.html` - Enhanced voice selection UI
+- `extension/popup.js` - Advanced voice management logic  
+- `extension/services/google-tts.js` - Voice listing and preview
+- `extension/background.js` - Voice preference storage
+
+#### Phase 3: Enhanced Settings Infrastructure
 **Goal**: Revamp settings for individual toggle controls and independent styling
 
 **What we'll build:**
@@ -126,7 +150,7 @@ Each highlighting mode can be:
 - `extension/popup.js` - Add per-mode settings logic
 - `extension/controlbar.js` - Prepare for layered highlighting
 
-#### Phase 3: Voice Compatibility Detection
+#### Phase 4: Voice Compatibility Detection
 **Goal**: Detect which highlighting modes work with current voice
 
 **What we'll build:**
@@ -139,7 +163,7 @@ Each highlighting mode can be:
 - `extension/background.js` - Add voice analysis
 - `extension/popup.js` - Add compatibility UI
 
-#### Phase 4: Sentence Highlighting
+#### Phase 5: Sentence Highlighting
 **Goal**: Implement sentence-by-sentence highlighting
 
 **What we'll build:**
@@ -152,7 +176,7 @@ Each highlighting mode can be:
 - `extension/controlbar.js` - Extend TextHighlighter class
 - `extension/background.js` - Add sentence event handling
 
-#### Phase 5: Word-by-Word Highlighting
+#### Phase 6: Word-by-Word Highlighting
 **Goal**: Implement word-by-word highlighting
 
 **What we'll build:**
@@ -165,7 +189,7 @@ Each highlighting mode can be:
 - `extension/controlbar.js` - Add word highlighting methods
 - `extension/background.js` - Add word event handling
 
-#### Phase 6: Advanced Features
+#### Phase 7: Advanced Features
 **Goal**: Add polish and layered highlighting
 
 **What we'll build:**

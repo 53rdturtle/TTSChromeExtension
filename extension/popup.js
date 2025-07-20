@@ -1,31 +1,22 @@
 // TTS Chrome Extension Popup Controller
-console.log('popup.js loaded - NEW FILE');
 
 class TTSController {
   constructor() {
-    console.log('TTSController constructor called');
     this.elements = this.initializeElements();
-    console.log('Elements initialized:', this.elements);
     this.bindEvents();
-    console.log('Events bound');
     
-    console.log('Calling loadSavedData...');
     this.loadSavedData().then(() => {
-      console.log('Calling populateVoices...');
       this.populateVoices();
-      console.log('Loading highlighting settings...');
       this.loadHighlightingSettings();
-      console.log('Loading Google TTS settings...');
       this.loadGoogleTTSSettings();
     });
-    console.log('Constructor completed');
   }
 
   // Initialize DOM elements
   initializeElements() {
-    console.log('initializeElements called');
     const elements = {
       voiceSelect: document.getElementById('voiceSelect'),
+      previewVoiceBtn: document.getElementById('previewVoiceBtn'),
       rateRange: document.getElementById('rateRange'),
       rateValue: document.getElementById('rateValue'),
       textArea: document.getElementById('text'),
@@ -59,17 +50,6 @@ class TTSController {
       animationToggle: document.getElementById('animationToggle')
     };
     
-    console.log('Elements found:', {
-      voiceSelect: !!elements.voiceSelect,
-      rateRange: !!elements.rateRange,
-      rateValue: !!elements.rateValue,
-      textArea: !!elements.textArea,
-      speakBtn: !!elements.speakBtn,
-      stopBtn: !!elements.stopBtn,
-      settingsBtn: !!elements.settingsBtn,
-      settingsPanel: !!elements.settingsPanel,
-      closeSettingsBtn: !!elements.closeSettingsBtn
-    });
     
     return elements;
   }
@@ -77,7 +57,8 @@ class TTSController {
   // Bind event listeners
   bindEvents() {
     this.elements.textArea.addEventListener('input', () => this.saveText());
-    this.elements.voiceSelect.addEventListener('change', () => this.saveVoice());
+    this.elements.voiceSelect.addEventListener('change', () => this.onVoiceChange());
+    this.elements.previewVoiceBtn.addEventListener('click', () => this.previewVoice());
     this.elements.rateRange.addEventListener('input', () => this.updateRate());
     this.elements.speakBtn.addEventListener('click', () => this.speak());
     this.elements.stopBtn.addEventListener('click', () => this.stop());
@@ -116,18 +97,14 @@ class TTSController {
   // Load saved data from storage, but prefer selected text from the active tab if available
   loadSavedData() {
     return new Promise((resolve) => {
-      console.log('Loading saved data...');
       // Try to get selected text from the background script
       chrome.runtime.sendMessage({ type: 'getSelectedText' }, (response) => {
-        console.log('getSelectedText response:', response);
         if (response && response.status === 'success' && response.selectedText) {
-          console.log('Found selected text:', response.selectedText);
           this._pendingSpeakText = response.selectedText;
           // Don't set textarea or speak yet; wait for voices and selected voice
           this._loadTextFromStorage(resolve);
           return;
         }
-        console.log('No selected text found, using saved/default text');
         // Fallback to saved/default text
         this._loadTextFromStorage(resolve);
       });
@@ -137,36 +114,27 @@ class TTSController {
   // Helper to load text from storage
   _loadTextFromStorage(callback) {
     chrome.storage.sync.get(['ttsText', 'selectedVoice', 'speechRate'], (result) => {
-      console.log('Loading from storage:', result);
       
       // Show loading status in the rate value display
       this.elements.rateValue.textContent = 'Loading...';
       
       // Always load speech rate first
       if (result.speechRate !== undefined) {
-        console.log('Setting speech rate to:', result.speechRate);
         this.elements.rateRange.value = result.speechRate;
         this.elements.rateValue.textContent = result.speechRate;
-        console.log('Rate range value after setting:', this.elements.rateRange.value);
-        console.log('Rate value text after setting:', this.elements.rateValue.textContent);
       } else {
-        console.log('No saved speech rate found, using default');
         this.elements.rateRange.value = 1.0;
         this.elements.rateValue.textContent = '1.0 (default)';
       }
       
       if (this._pendingSpeakText) {
         // Set the textarea with selected text
-        console.log('Setting textarea with selected text:', this._pendingSpeakText);
         this.elements.textArea.value = this._pendingSpeakText;
-        console.log('Textarea value after setting:', this.elements.textArea.value);
         // We'll speak after voices are loaded and selected voice is restored
         this._pendingVoiceToRestore = result.selectedVoice;
         
         // Add a verification check after a short delay
         setTimeout(() => {
-          console.log('Verification - textarea value after delay:', this.elements.textArea.value);
-          console.log('Verification - pending speak text:', this._pendingSpeakText);
         }, 100);
       } else {
         if (result.ttsText !== undefined && result.ttsText !== '') {
@@ -185,40 +153,90 @@ class TTSController {
   }
 
   // Save selected voice to storage and update compatibility indicators
+  // Handle voice selection change
+  onVoiceChange() {
+    this.saveVoice();
+    this.updatePreviewButton();
+  }
+
   saveVoice() {
     chrome.storage.sync.set({ selectedVoice: this.elements.voiceSelect.value });
     this.updateCompatibilityIndicators();
   }
 
+  // Update preview button state
+  updatePreviewButton() {
+    const hasSelectedVoice = this.elements.voiceSelect.value !== '';
+    this.elements.previewVoiceBtn.disabled = !hasSelectedVoice;
+  }
+
+  // Preview the selected voice
+  async previewVoice() {
+    const selectedVoice = this.elements.voiceSelect.value;
+    if (!selectedVoice) return;
+
+    // Find the voice object to determine if it's Google or Chrome TTS
+    const voice = this.availableVoices?.find(v => v.name === selectedVoice);
+    if (!voice) return;
+
+    // Sample text for preview
+    const previewTexts = [
+      "Hello! This is how I sound.",
+      "Welcome to text-to-speech preview.",
+      "This is a sample of my voice quality.",
+      "How do you like the sound of this voice?"
+    ];
+    const previewText = previewTexts[Math.floor(Math.random() * previewTexts.length)];
+
+    try {
+      // Update button state
+      this.elements.previewVoiceBtn.classList.add('playing');
+      this.elements.previewVoiceBtn.textContent = '⏹️';
+
+      // Send preview message
+      const message = {
+        type: 'speak',
+        text: previewText,
+        voiceName: selectedVoice,
+        rate: parseFloat(this.elements.rateRange.value)
+      };
+
+      chrome.runtime.sendMessage(message, (response) => {
+        // Reset button after preview (with delay to account for TTS duration)
+        setTimeout(() => {
+          this.elements.previewVoiceBtn.classList.remove('playing');
+          this.elements.previewVoiceBtn.textContent = '🔊';
+        }, Math.max(2000, previewText.length * 100)); // Estimate duration
+      });
+
+    } catch (error) {
+      console.error('Error previewing voice:', error);
+      this.elements.previewVoiceBtn.classList.remove('playing');
+      this.elements.previewVoiceBtn.textContent = '🔊';
+    }
+  }
+
   // Update rate display and save to storage
   updateRate() {
     const rate = this.elements.rateRange.value;
-    console.log('Updating rate to:', rate);
     this.elements.rateValue.textContent = rate;
     chrome.storage.sync.set({ speechRate: rate }, () => {
-      console.log('Rate saved to storage:', rate);
     });
   }
 
   // Populate voice dropdown
   populateVoices() {
-    console.log('populateVoices called');
     
     // Set a timeout to ensure we don't wait forever for voices
     const voiceTimeout = setTimeout(() => {
-      console.log('Voice loading timeout reached');
       if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-        console.log('Timeout: attempting to speak with default voice');
         this._autoSpeakTriggered = true;
         this.speak();
         this._pendingSpeakText = null;
       }
     }, 3000); // 3 second timeout
     
-    console.log('Sending getVoices message to background...');
     chrome.runtime.sendMessage({ type: 'getVoices' }, (response) => {
-      console.log('getVoices callback received, response:', response);
-      console.log('chrome.runtime.lastError:', chrome.runtime.lastError);
       
       clearTimeout(voiceTimeout); // Clear timeout if we get a response
       
@@ -226,22 +244,17 @@ class TTSController {
         console.error('Runtime error in getVoices:', chrome.runtime.lastError);
       }
       
-      console.log('getVoices response:', response);
       if (response && response.status === 'success') {
-        console.log('Voices loaded successfully, count:', response.voices.length);
         this.populateVoiceOptions(response.voices);
         this.restoreSelectedVoice(() => {
-          console.log('Selected voice restored, checking for pending speak text...');
           // Update compatibility indicators after voice is restored
           this.updateCompatibilityIndicators();
           // If we have pending selected text to speak, do it now
           if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-            console.log('Auto-speaking with rate:', this.elements.rateRange.value);
             this._autoSpeakTriggered = true;
             this.speak();
             this._pendingSpeakText = null;
           } else {
-            console.log('No pending speak text found');
           }
         });
       } else {
@@ -249,7 +262,6 @@ class TTSController {
         this.showError('Failed to load voices: ' + (response?.error || 'Unknown error'));
         // Fallback: if we have pending text to speak, try to speak anyway
         if (this._pendingSpeakText && !this._autoSpeakTriggered) {
-          console.log('Voices failed to load, but attempting to speak with default voice');
           this._autoSpeakTriggered = true;
           this.speak();
           this._pendingSpeakText = null;
@@ -265,23 +277,117 @@ class TTSController {
     // Store voices for compatibility checking
     this.availableVoices = voices;
     
-    voices.forEach((voice) => {
-      const option = document.createElement('option');
-      option.value = voice.voiceName;
+    // Group voices by language for better organization
+    const voicesByLanguage = this.groupVoicesByLanguage(voices);
+    
+    // Create option groups for each language
+    Object.entries(voicesByLanguage).forEach(([language, langVoices]) => {
+      const optGroup = document.createElement('optgroup');
+      optGroup.label = this.getLanguageDisplayName(language);
       
-      // Check compatibility for each highlighting mode
-      const compatibility = this.getVoiceCompatibility(voice);
-      const compatibilityText = this.formatCompatibilityText(compatibility);
+      langVoices.forEach((voice) => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        
+        // Build display text with quality indicators
+        const qualityBadge = this.getQualityBadge(voice.quality, voice.isGoogle);
+        const genderIcon = this.getGenderIcon(voice.gender);
+        
+        option.textContent = `${qualityBadge} ${voice.name} ${genderIcon}`;
+        
+        // Add data attributes for filtering/sorting
+        option.dataset.quality = voice.quality;
+        option.dataset.gender = voice.gender;
+        option.dataset.isGoogle = voice.isGoogle;
+        option.dataset.language = voice.lang;
+        
+        optGroup.appendChild(option);
+      });
       
-      option.textContent = `${voice.voiceName} (${voice.lang})${voice.default ? ' [default]' : ''} ${compatibilityText}`;
-      this.elements.voiceSelect.appendChild(option);
+      this.elements.voiceSelect.appendChild(optGroup);
     });
+    
+    // Update preview button state after voices are loaded
+    this.updatePreviewButton();
+  }
+
+  // Group voices by language
+  groupVoicesByLanguage(voices) {
+    return voices.reduce((acc, voice) => {
+      const lang = voice.lang || 'unknown';
+      if (!acc[lang]) acc[lang] = [];
+      acc[lang].push(voice);
+      return acc;
+    }, {});
+  }
+
+  // Get quality badge emoji
+  getQualityBadge(quality, isGoogle) {
+    const badges = {
+      'Chirp3': '🎭',     // Premium HD voices
+      'Neural2': '🎵',    // High quality neural
+      'Studio': '🎬',     // Studio quality
+      'WaveNet': '🌊',    // WaveNet technology
+      'Standard': '📻'    // Standard voices
+    };
+    
+    const badge = badges[quality] || '📻';
+    const serviceIcon = isGoogle ? '🔗' : '🔧'; // Google vs Chrome
+    
+    return `${badge}${serviceIcon}`;
+  }
+
+  // Get gender icon
+  getGenderIcon(gender) {
+    switch (gender) {
+      case 'male': return '♂️';
+      case 'female': return '♀️';
+      case 'neutral': return '⚪';
+      default: return '';
+    }
+  }
+
+  // Get readable language display name
+  getLanguageDisplayName(langCode) {
+    const langNames = {
+      'en-US': 'English (US)',
+      'en-GB': 'English (UK)', 
+      'en-AU': 'English (AU)',
+      'en-CA': 'English (CA)',
+      'es-ES': 'Spanish (Spain)',
+      'es-US': 'Spanish (US)',
+      'fr-FR': 'French (France)',
+      'fr-CA': 'French (Canada)',
+      'de-DE': 'German',
+      'it-IT': 'Italian',
+      'pt-BR': 'Portuguese (Brazil)',
+      'pt-PT': 'Portuguese (Portugal)',
+      'ja-JP': 'Japanese',
+      'ko-KR': 'Korean',
+      'zh-CN': 'Chinese (Mandarin)',
+      'zh-TW': 'Chinese (Taiwan)',
+      'hi-IN': 'Hindi',
+      'ar-XA': 'Arabic',
+      'ru-RU': 'Russian'
+    };
+    
+    return langNames[langCode] || langCode;
   }
 
   // Check which highlighting modes this voice supports
   getVoiceCompatibility(voice) {
     const eventTypes = voice.eventTypes || [];
     
+    // Google TTS voices have different capabilities
+    if (voice.isGoogle) {
+      return {
+        fullSelection: true, // Always supported 
+        sentence: true, // Google TTS supports sentence events via SSML marks
+        word: true // Google TTS supports word events via SSML marks
+      };
+    }
+    
+    // Chrome TTS voice compatibility based on event types
     return {
       fullSelection: true, // Always supported (just needs start/end events)
       sentence: eventTypes.includes('sentence') || eventTypes.includes('start'), // Sentence boundaries or basic events
@@ -303,17 +409,12 @@ class TTSController {
 
   // Restore previously selected voice, then call callback
   restoreSelectedVoice(callback) {
-    console.log('restoreSelectedVoice called');
     chrome.storage.sync.get(['selectedVoice'], (result) => {
-      console.log('Restoring voice from storage:', result);
       if (result.selectedVoice !== undefined) {
         this.elements.voiceSelect.value = result.selectedVoice;
-        console.log('Voice restored to:', result.selectedVoice);
       } else {
-        console.log('No saved voice found, using default');
       }
       if (typeof callback === 'function') {
-        console.log('Calling restoreSelectedVoice callback');
         callback();
       }
     });
@@ -321,10 +422,7 @@ class TTSController {
 
   // Speak the text
   speak() {
-    console.log('=== SPEAK METHOD CALLED ===');
     const text = this.elements.textArea.value.trim();
-    console.log('Speak called, textarea value:', this.elements.textArea.value);
-    console.log('Trimmed text:', text);
     
     if (!text) {
       this.showError('Please enter some text to speak');
@@ -332,7 +430,6 @@ class TTSController {
     }
 
     const rate = parseFloat(this.elements.rateRange.value);
-    console.log('Speaking with rate:', rate, 'Rate range value:', this.elements.rateRange.value);
 
     const message = {
       type: 'speak',
@@ -341,7 +438,6 @@ class TTSController {
       voiceName: this.elements.voiceSelect.value
     };
 
-    console.log('Sending message to background:', message);
 
     this.setButtonState(true);
     
@@ -436,14 +532,12 @@ class TTSController {
 
   // Show settings panel
   showSettings() {
-    console.log('Showing settings panel');
     this.elements.settingsPanel.classList.add('active');
     document.body.classList.add('settings-open');
   }
 
   // Hide settings panel
   hideSettings() {
-    console.log('Hiding settings panel');
     this.elements.settingsPanel.classList.remove('active');
     document.body.classList.remove('settings-open');
   }
@@ -464,10 +558,8 @@ class TTSController {
 
   // Load highlighting settings from storage
   loadHighlightingSettings() {
-    console.log('Loading highlighting settings...');
     chrome.runtime.sendMessage({ type: 'getHighlightingSettings' }, (response) => {
       if (response && response.status === 'success') {
-        console.log('Loaded highlighting settings:', response.settings);
         this.applySettingsToUI(response.settings);
       } else {
         console.error('Failed to load highlighting settings:', response?.error);
@@ -477,7 +569,6 @@ class TTSController {
 
   // Apply settings to UI elements
   applySettingsToUI(settings) {
-    console.log('Applying settings to UI:', settings);
     
     // Full Selection settings
     if (settings.fullSelection) {
@@ -557,7 +648,6 @@ class TTSController {
 
   // Save settings to storage
   saveSettings() {
-    console.log('Saving settings...');
     
     // Get current settings from UI
     const settings = {
@@ -594,14 +684,12 @@ class TTSController {
       }
     };
 
-    console.log('Settings to save:', settings);
 
     chrome.runtime.sendMessage({
       type: 'saveHighlightingSettings',
       settings: settings
     }, (response) => {
       if (response && response.status === 'success') {
-        console.log('Settings saved successfully');
       } else {
         console.error('Failed to save settings:', response?.error);
         this.showError('Failed to save settings: ' + (response?.error || 'Unknown error'));
@@ -611,9 +699,7 @@ class TTSController {
 
   // Load Google TTS settings
   loadGoogleTTSSettings() {
-    console.log('Loading Google TTS settings...');
     chrome.storage.sync.get(['googleTTSEnabled', 'googleAPIKey'], (result) => {
-      console.log('Loaded Google TTS settings:', result);
       this.elements.googleTTSToggle.checked = result.googleTTSEnabled === true;
       this.elements.googleAPIKey.value = result.googleAPIKey || '';
     });
@@ -621,7 +707,6 @@ class TTSController {
 
   // Save Google TTS settings
   saveGoogleTTSSettings() {
-    console.log('Saving Google TTS settings...');
     const settings = {
       googleTTSEnabled: this.elements.googleTTSToggle.checked,
       googleAPIKey: this.elements.googleAPIKey.value.trim()
@@ -631,7 +716,6 @@ class TTSController {
       if (chrome.runtime.lastError) {
         console.error('Failed to save Google TTS settings:', chrome.runtime.lastError);
       } else {
-        console.log('Google TTS settings saved successfully');
       }
     });
   }
@@ -639,11 +723,8 @@ class TTSController {
 
 // Initialize the controller when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOMContentLoaded event fired');
   try {
-    console.log('Creating TTSController...');
     const controller = new TTSController();
-    console.log('TTSController created successfully');
     
     // On load, check if TTS is currently speaking
     chrome.runtime.sendMessage({ type: 'getStatus' }, (response) => {

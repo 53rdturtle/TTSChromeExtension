@@ -77,7 +77,9 @@ describe('TTSController', () => {
       animationToggle: createMockElement('animationToggle', 'checkbox'),
       // Google TTS elements
       googleTTSToggle: createMockElement('googleTTSToggle', 'checkbox'),
-      googleAPIKey: createMockElement('googleAPIKey', 'input')
+      googleAPIKey: createMockElement('googleAPIKey', 'input'),
+      // Voice preview element
+      previewVoiceBtn: createMockElement('previewVoiceBtn', 'button')
     };
 
     // Mock document.getElementById

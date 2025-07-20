@@ -33,6 +33,32 @@ class GoogleTTSService {
     });
   }
 
+  // Get voice configuration for Google TTS - handles both Chrome voice names and Google voice names
+  getVoiceConfig(voiceName) {
+    // Check if this is already a Google TTS voice name (contains dashes and region codes)
+    if (this.isGoogleVoiceName(voiceName)) {
+      return {
+        voice: voiceName,
+        lang: this.extractLanguageFromGoogleVoice(voiceName)
+      };
+    }
+    
+    // Otherwise, map Chrome voice name to Google voice
+    return this.mapChromeVoiceToGoogle(voiceName);
+  }
+
+  // Check if voice name is a Google TTS voice (e.g., "en-US-Neural2-F")
+  isGoogleVoiceName(voiceName) {
+    // Google voice names follow pattern: language-region-type-variant
+    return /^[a-z]{2}-[A-Z]{2}-/.test(voiceName);
+  }
+
+  // Extract language code from Google voice name
+  extractLanguageFromGoogleVoice(voiceName) {
+    const match = voiceName.match(/^([a-z]{2}-[A-Z]{2})/);
+    return match ? match[1] : 'en-US';
+  }
+
   // Map Chrome TTS voice names to Google TTS voice names with language codes
   mapChromeVoiceToGoogle(chromeVoiceName) {
     const voiceMap = {
@@ -56,8 +82,8 @@ class GoogleTTSService {
       throw new Error('Google TTS API key not configured');
     }
 
-    // Map Chrome voice name to Google voice name with language code
-    const googleVoiceConfig = this.mapChromeVoiceToGoogle(options.voiceName);
+    // Get voice configuration - either map Chrome voice or use Google voice directly
+    const googleVoiceConfig = this.getVoiceConfig(options.voiceName);
 
     // Prepare request payload
     const request = {
@@ -186,16 +212,66 @@ class GoogleTTSService {
     }
   }
 
-  // Get available voices (placeholder for now)
-  async getVoices() {
-    // For MVP, return a basic set of voices
-    // In the future, this could call the Google TTS voices API
-    return [
-      { name: 'en-US-Neural2-F', lang: 'en-US', gender: 'female', quality: 'Neural2' },
-      { name: 'en-US-Neural2-M', lang: 'en-US', gender: 'male', quality: 'Neural2' },
-      { name: 'en-US-WaveNet-F', lang: 'en-US', gender: 'female', quality: 'WaveNet' },
-      { name: 'en-US-WaveNet-M', lang: 'en-US', gender: 'male', quality: 'WaveNet' }
-    ];
+  // Get available voices from Google TTS API
+  async getVoices(languageCode = null) {
+    // Get API key
+    const apiKey = await this.getApiKey();
+    if (!apiKey) {
+      // Return empty array if no API key - fallback to Chrome voices
+      return [];
+    }
+
+    try {
+      // Build API URL
+      let url = `https://texttospeech.googleapis.com/v1/voices?key=${apiKey}`;
+      if (languageCode) {
+        url += `&languageCode=${languageCode}`;
+      }
+
+      // Make API call
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error('Google TTS voices API error:', response.status, response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+      
+      // Transform API response to our format
+      return (data.voices || []).map(voice => ({
+        name: voice.name,
+        lang: voice.languageCodes?.[0] || 'unknown',
+        languages: voice.languageCodes || [],
+        gender: this.mapGender(voice.ssmlGender),
+        quality: this.getVoiceQuality(voice.name),
+        sampleRate: voice.naturalSampleRateHertz,
+        isGoogle: true
+      }));
+
+    } catch (error) {
+      console.error('Error fetching Google TTS voices:', error);
+      return [];
+    }
+  }
+
+  // Helper method to map Google TTS gender to our format
+  mapGender(ssmlGender) {
+    switch (ssmlGender) {
+      case 'MALE': return 'male';
+      case 'FEMALE': return 'female';
+      case 'NEUTRAL': return 'neutral';
+      default: return 'unknown';
+    }
+  }
+
+  // Helper method to determine voice quality from voice name
+  getVoiceQuality(voiceName) {
+    if (voiceName.includes('Chirp')) return 'Chirp3';
+    if (voiceName.includes('Neural2')) return 'Neural2';
+    if (voiceName.includes('WaveNet')) return 'WaveNet';
+    if (voiceName.includes('Studio')) return 'Studio';
+    return 'Standard';
   }
 }
 

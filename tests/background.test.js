@@ -316,7 +316,14 @@ describe('MessageHandler', () => {
       expect(mockTTSService.getVoices).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ 
         status: 'success', 
-        voices: mockVoices 
+        voices: [{
+          name: 'Test Voice',
+          lang: undefined,
+          gender: 'unknown',
+          quality: 'Standard',
+          isGoogle: false,
+          eventTypes: []
+        }]
       });
     });
 

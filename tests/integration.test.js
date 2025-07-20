@@ -153,7 +153,25 @@ describe('Integration Tests', () => {
       expect(chrome.tts.getVoices).toHaveBeenCalled();
       expect(voicesResponse).toHaveBeenCalledWith({
         status: 'success',
-        voices: mockVoices
+        voices: [
+          // Voices are sorted by language code, so en-GB comes before en-US
+          {
+            name: 'Voice 2',
+            lang: 'en-GB',
+            gender: 'unknown',
+            quality: 'Standard',
+            isGoogle: false,
+            eventTypes: []
+          },
+          {
+            name: 'Voice 1', 
+            lang: 'en-US',
+            gender: 'unknown',
+            quality: 'Standard',
+            isGoogle: false,
+            eventTypes: []
+          }
+        ]
       });
 
       // Use a voice for speaking

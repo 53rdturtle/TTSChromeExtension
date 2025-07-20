@@ -143,7 +143,9 @@ global.document = {
       'highlightingToggle': createMockElement('input'),
       // Google TTS elements
       'googleTTSToggle': createMockElement('input'),
-      'googleAPIKey': createMockElement('input')
+      'googleAPIKey': createMockElement('input'),
+      // Voice preview element
+      'previewVoiceBtn': createMockElement('button')
     };
     return mockElements[id] || createMockElement('div');
   }),
