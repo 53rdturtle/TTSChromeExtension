@@ -197,50 +197,7 @@
           </div>
         </div>
 
-        <div class="setting-section">
-          <h3>Favorites Management</h3>
-          <p class="setting-description">Click the ⭐ icon next to any voice in the browser above to add it to your favorites. When you have favorites, the popup will automatically show only those voices for faster selection.</p>
-          
-          <div class="favorites-summary">
-            <div class="favorites-count">
-              <span id="favoritesCount">0</span> favorite voices selected
-            </div>
-            <div class="favorites-actions">
-              <button id="clearAllFavorites" class="btn-secondary">Clear All Favorites</button>
-              <button id="addDefaultFavorites" class="btn-secondary">Add Recommended Favorites</button>
-            </div>
-          </div>
-          
-          <div class="setting-item">
-            <label>Quick Actions:</label>
-            <div class="quick-actions">
-              <button id="favoriteAllEnglish" class="btn-outline">⭐ All English Voices</button>
-              <button id="favoriteAllGoogle" class="btn-outline">⭐ All Google Voices</button>
-              <button id="favoriteAllNeural" class="btn-outline">⭐ All Neural2 Voices</button>
-            </div>
-          </div>
-        </div>
 
-        <div class="setting-section">
-          <h3>Voice Testing</h3>
-          
-          <div class="setting-item">
-            <label for="testText">Test Text:</label>
-            <textarea id="testText" rows="3" placeholder="Enter text to test voices with...">This is a sample text to test how different voices sound. You can change this text to test with your own content.</textarea>
-          </div>
-          
-          <div class="setting-item">
-            <label for="testRate">Test Speech Rate:</label>
-            <input type="range" id="testRate" min="0.5" max="2.0" step="0.1" value="1.0">
-            <span id="testRateValue">1.0x</span>
-          </div>
-          
-          <div class="voice-test-actions">
-            <button id="testSelectedVoice" class="btn-primary">🎙️ Test Selected Voice</button>
-            <button id="stopVoiceTest" class="btn-secondary">⏹️ Stop Test</button>
-            <button id="compareVoices" class="btn-secondary">⚖️ Compare Multiple Voices</button>
-          </div>
-        </div>
       </section>
 
       <!-- Highlighting Tab -->
@@ -562,12 +519,8 @@
 
     <!-- Footer -->
     <footer class="options-footer">
-      <div class="footer-actions">
-        <button id="saveSettings" class="btn-primary">Save Settings</button>
-        <button id="cancelSettings" class="btn-secondary">Cancel</button>
-      </div>
       <div class="footer-info">
-        <span>TTS Extension v1.0.0</span>
+        <span>TTS Extension v1.0.0 • Settings auto-save</span>
         <a href="#" id="helpLink">Help</a>
         <a href="#" id="feedbackLink">Feedback</a>
       </div>

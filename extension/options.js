@@ -112,24 +112,15 @@ class OptionsController {
     document.getElementById('voiceServiceFilter').addEventListener('change', this.filterVoices.bind(this));
     document.getElementById('refreshVoices').addEventListener('click', this.refreshVoices.bind(this));
     
-    // Voice testing
-    document.getElementById('testRate').addEventListener('input', this.updateTestRateDisplay.bind(this));
-    document.getElementById('testSelectedVoice').addEventListener('click', this.testSelectedVoice.bind(this));
-    document.getElementById('stopVoiceTest').addEventListener('click', this.stopVoiceTest.bind(this));
-    document.getElementById('compareVoices').addEventListener('click', this.compareVoices.bind(this));
+    // Voice testing section removed
     
     // Voice preferences (favorites are automatic)
     document.getElementById('autoSelectBestVoice').addEventListener('change', () => this.markUnsaved());
     document.getElementById('showVoiceCompatibility').addEventListener('change', this.toggleCompatibilityDisplay.bind(this));
     document.getElementById('rememberVoicePerLanguage').addEventListener('change', () => this.markUnsaved());
     
-    // Favorites management
+    // Favorites management section removed
     document.getElementById('voiceFavoriteFilter').addEventListener('change', this.filterVoices.bind(this));
-    document.getElementById('clearAllFavorites').addEventListener('click', this.clearAllFavorites.bind(this));
-    document.getElementById('addDefaultFavorites').addEventListener('click', this.addDefaultFavorites.bind(this));
-    document.getElementById('favoriteAllEnglish').addEventListener('click', this.favoriteAllEnglish.bind(this));
-    document.getElementById('favoriteAllGoogle').addEventListener('click', this.favoriteAllGoogle.bind(this));
-    document.getElementById('favoriteAllNeural').addEventListener('click', this.favoriteAllNeural.bind(this));
 
     // Highlighting tab
     document.getElementById('fullSelectionEnabled').addEventListener('change', this.toggleFullSelectionStyles.bind(this));
@@ -167,22 +158,14 @@ class OptionsController {
     document.getElementById('importFile').addEventListener('change', this.importSettings.bind(this));
     document.getElementById('resetSettings').addEventListener('click', this.resetSettings.bind(this));
 
-    // Footer actions
-    document.getElementById('saveSettings').addEventListener('click', this.saveSettings.bind(this));
-    document.getElementById('cancelSettings').addEventListener('click', this.cancelSettings.bind(this));
+    // Auto-save functionality - no manual save buttons needed
 
     // Mark changes as unsaved for all form inputs
     document.querySelectorAll('input, select').forEach(element => {
       element.addEventListener('change', () => this.markUnsaved());
     });
 
-    // Warn about unsaved changes
-    window.addEventListener('beforeunload', (e) => {
-      if (this.unsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-      }
-    });
+    // Auto-save handles all changes - no need for beforeunload warning
   }
 
   // Settings Management
@@ -396,8 +379,7 @@ class OptionsController {
 
     // Voice preferences (favorites are managed automatically)
     
-    // Update favorites count display
-    this.updateFavoritesCount();
+    // Favorites management section removed
 
     // Google TTS tab
     document.getElementById('googleTTSEnabled').checked = this.settings.googleTTSEnabled;
@@ -590,28 +572,7 @@ class OptionsController {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  // Settings Actions
-  async saveSettings() {
-    const formData = this.collectFormData();
-    
-    
-    try {
-      await chrome.storage.sync.set(formData);
-      this.settings = { ...this.settings, ...formData };
-      this.unsavedChanges = false;
-      this.showNotification('Settings saved successfully!', 'success');
-      
-      // Update save button
-      const saveButton = document.getElementById('saveSettings');
-      saveButton.textContent = 'Saved!';
-      setTimeout(() => {
-        saveButton.textContent = 'Save Settings';
-      }, 2000);
-      
-    } catch (error) {
-      this.showNotification('Failed to save settings', 'error');
-    }
-  }
+  // Settings are auto-saved via markUnsaved() -> autoSave() method
 
   collectFormData() {
     return {
@@ -660,14 +621,7 @@ class OptionsController {
     };
   }
 
-  cancelSettings() {
-    if (this.unsavedChanges) {
-      if (!confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-        return;
-      }
-    }
-    window.close();
-  }
+  // No longer needed - auto-save handles all changes
 
   async resetSettings() {
     if (!confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
@@ -741,12 +695,53 @@ class OptionsController {
 
   // Utility Functions
   markUnsaved() {
-    this.unsavedChanges = true;
-    const saveButton = document.getElementById('saveSettings');
-    if (!saveButton.classList.contains('unsaved')) {
-      saveButton.classList.add('unsaved');
-      saveButton.textContent = 'Save Settings*';
+    // Auto-save instead of marking unsaved
+    this.autoSave();
+  }
+
+  async autoSave() {
+    // Debounce auto-save to avoid too many rapid saves
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
     }
+    
+    this.autoSaveTimeout = setTimeout(async () => {
+      try {
+        const formData = this.collectFormData();
+        await chrome.storage.sync.set(formData);
+        this.settings = { ...this.settings, ...formData };
+        this.unsavedChanges = false;
+        
+        // Show subtle auto-save indicator
+        this.showAutoSaveIndicator();
+        
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+        this.showNotification('Failed to auto-save settings', 'error');
+      }
+    }, 500); // 500ms debounce
+  }
+
+  showAutoSaveIndicator() {
+    // Create or update auto-save indicator
+    let indicator = document.getElementById('autoSaveIndicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'autoSaveIndicator';
+      indicator.className = 'auto-save-indicator';
+      indicator.innerHTML = '✓ Auto-saved';
+      document.querySelector('.options-header').appendChild(indicator);
+    }
+    
+    // Show the indicator
+    indicator.style.opacity = '1';
+    indicator.style.transform = 'translateY(0)';
+    
+    // Hide it after 2 seconds
+    setTimeout(() => {
+      indicator.style.opacity = '0';
+      indicator.style.transform = 'translateY(-10px)';
+    }, 2000);
   }
 
   showNotification(message, type = 'info') {
@@ -1030,41 +1025,10 @@ class OptionsController {
     }
   }
 
-  updateTestRateDisplay() {
-    const rate = document.getElementById('testRate').value;
-    document.getElementById('testRateValue').textContent = `${rate}x`;
-  }
+  // Voice testing methods removed
 
-  async testSelectedVoice() {
-    if (this.selectedVoiceIndex === undefined) {
-      this.showNotification('Please select a voice to test', 'warning');
-      return;
-    }
 
-    const voices = this.filteredVoices || this.voices;
-    const selectedVoice = voices[this.selectedVoiceIndex];
-    await this.previewVoice(selectedVoice);
-  }
 
-  async stopVoiceTest() {
-    try {
-      await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'stop' }, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Error stopping voice test:', chrome.runtime.lastError);
-          }
-          resolve();
-        });
-      });
-    } catch (error) {
-      console.error('Error stopping voice test:', error);
-    }
-  }
-
-  async compareVoices() {
-    // This would open a modal or expanded view to compare multiple voices
-    this.showNotification('Voice comparison feature coming soon!', 'info');
-  }
 
   toggleCompatibilityDisplay() {
     const showCompatibility = document.getElementById('showVoiceCompatibility').checked;
@@ -1096,7 +1060,6 @@ class OptionsController {
     await chrome.storage.sync.set({ favoriteVoices: favorites });
 
     // Update UI
-    this.updateFavoritesCount();
     this.renderVoiceList(); // Re-render to update favorite buttons
     this.markUnsaved();
 
@@ -1112,7 +1075,6 @@ class OptionsController {
     this.settings.favoriteVoices = [];
     await chrome.storage.sync.set({ favoriteVoices: [] });
 
-    this.updateFavoritesCount();
     this.renderVoiceList();
     this.markUnsaved();
     this.showNotification('All favorites cleared', 'success');
@@ -1144,81 +1106,15 @@ class OptionsController {
     this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...availableRecommended];
     await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
 
-    this.updateFavoritesCount();
     this.renderVoiceList();
     this.markUnsaved();
     this.showNotification(`Added ${availableRecommended.length} recommended voices to favorites`, 'success');
   }
 
-  async favoriteAllEnglish() {
-    const englishVoices = this.voices.filter(voice => 
-      voice.lang.startsWith('en-') && 
-      !this.settings.favoriteVoices.includes(voice.name)
-    );
 
-    if (englishVoices.length === 0) {
-      this.showNotification('All English voices are already favorited', 'info');
-      return;
-    }
 
-    const englishVoiceNames = englishVoices.map(v => v.name);
-    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...englishVoiceNames];
-    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
 
-    this.updateFavoritesCount();
-    this.renderVoiceList();
-    this.markUnsaved();
-    this.showNotification(`Added ${englishVoices.length} English voices to favorites`, 'success');
-  }
-
-  async favoriteAllGoogle() {
-    const googleVoices = this.voices.filter(voice => 
-      voice.isGoogle && 
-      !this.settings.favoriteVoices.includes(voice.name)
-    );
-
-    if (googleVoices.length === 0) {
-      this.showNotification('All Google voices are already favorited', 'info');
-      return;
-    }
-
-    const googleVoiceNames = googleVoices.map(v => v.name);
-    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...googleVoiceNames];
-    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
-
-    this.updateFavoritesCount();
-    this.renderVoiceList();
-    this.markUnsaved();
-    this.showNotification(`Added ${googleVoices.length} Google voices to favorites`, 'success');
-  }
-
-  async favoriteAllNeural() {
-    const neuralVoices = this.voices.filter(voice => 
-      voice.quality === 'Neural2' && 
-      !this.settings.favoriteVoices.includes(voice.name)
-    );
-
-    if (neuralVoices.length === 0) {
-      this.showNotification('All Neural2 voices are already favorited', 'info');
-      return;
-    }
-
-    const neuralVoiceNames = neuralVoices.map(v => v.name);
-    this.settings.favoriteVoices = [...this.settings.favoriteVoices, ...neuralVoiceNames];
-    await chrome.storage.sync.set({ favoriteVoices: this.settings.favoriteVoices });
-
-    this.updateFavoritesCount();
-    this.renderVoiceList();
-    this.markUnsaved();
-    this.showNotification(`Added ${neuralVoices.length} Neural2 voices to favorites`, 'success');
-  }
-
-  updateFavoritesCount() {
-    const countElement = document.getElementById('favoritesCount');
-    if (countElement) {
-      countElement.textContent = this.settings.favoriteVoices.length;
-    }
-  }
+  // Favorites count method removed
 
   // Quota Management
   async loadQuotaUsage() {

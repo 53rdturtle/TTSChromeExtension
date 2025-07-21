@@ -495,6 +495,34 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* Auto-save indicator */
+#autoSaveIndicator {
+  display: none;
+  background: #28a745;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  animation: fadeInOut 2s ease-in-out;
+  margin-left: 1rem;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  20%, 80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
 /* Notifications */
 .notification {
   position: fixed;
