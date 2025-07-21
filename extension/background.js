@@ -447,6 +447,11 @@ class MessageHandler {
       globalTTSState.isSpeaking = false;
       globalTTSState.isPaused = false;
       globalTTSState.showControlBar = false;
+      globalTTSState.originatingTabId = null;
+      
+      // Note: Highlighting will be cleared automatically when googleTTSService.stopAudio()
+      // triggers the googleTTSEnded event from the offscreen document
+      
       broadcastControlBarState();
       
       sendResponse(chromeResult);
@@ -803,32 +808,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // TTS events are now handled directly in the onEvent callback of each speak() call
 
-// Listen for the open_popup command and speak the selected content
+// Listen for the open_popup command - toggle between speak and stop
 chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addListener(async (command) => {
   if (command === "open_popup") {
-    const selectedText = await getSelectedTextFromActiveTab();
-    if (selectedText) {
-      // Get last used voice and rate from storage (same keys as popup)
-      chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
-        console.log('⌨️ Keyboard shortcut using settings:', { 
-          voice: prefs.savedVoice, 
-          rate: prefs.savedRate 
-        });
-        
-        const message = {
-          type: 'speak',
-          text: selectedText,
-          rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
-          voiceName: prefs.savedVoice
-        };
-        
-        // Use the integrated handleSpeak method that includes Google TTS
-        await messageHandler.handleSpeak(message, (response) => {
-          if (response && response.status === 'error') {
-            console.error('TTS Error from keyboard shortcut:', response.error);
-          }
-        });
+    // Check if TTS is currently speaking
+    if (globalTTSState.isSpeaking || globalTTSState.isPaused) {
+      console.log('⌨️ Keyboard shortcut: Stopping current TTS');
+      // Stop the current TTS
+      await messageHandler.handleStop((response) => {
+        console.log('⌨️ TTS stopped via keyboard shortcut:', response);
       });
+    } else {
+      console.log('⌨️ Keyboard shortcut: Starting TTS with selected text');
+      // Start speaking selected text
+      const selectedText = await getSelectedTextFromActiveTab();
+      if (selectedText) {
+        // Get last used voice and rate from storage (same keys as popup)
+        chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
+          console.log('⌨️ Keyboard shortcut using settings:', { 
+            voice: prefs.savedVoice, 
+            rate: prefs.savedRate 
+          });
+          
+          const message = {
+            type: 'speak',
+            text: selectedText,
+            rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
+            voiceName: prefs.savedVoice
+          };
+          
+          // Use the integrated handleSpeak method that includes Google TTS
+          await messageHandler.handleSpeak(message, (response) => {
+            if (response && response.status === 'error') {
+              console.error('TTS Error from keyboard shortcut:', response.error);
+            }
+          });
+        });
+      } else {
+        console.log('⌨️ Keyboard shortcut: No text selected to speak');
+      }
     }
   }
 });

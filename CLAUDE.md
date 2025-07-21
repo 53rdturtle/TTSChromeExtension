@@ -37,7 +37,7 @@ This is a Chrome extension that provides text-to-speech functionality with a com
 
 4. **Extension Configuration** (`extension/manifest.json`)
    - Manifest v3 with permissions for storage, activeTab, tts, scripting
-   - Keyboard shortcut: Ctrl+Shift+Z to open popup
+   - **Keyboard shortcut: Ctrl+Q** - Toggle TTS (start speaking selected text / stop current speech)
    - Content script injection on all URLs
 
 ### Message Passing Architecture

@@ -115,6 +115,9 @@ class OffscreenAudioPlayer {
       this.currentAudio.currentTime = 0;
       this.currentAudio.src = '';
       this.currentAudio = null;
+      
+      // Send googleTTSEnded event to ensure highlighting is cleared when manually stopped
+      chrome.runtime.sendMessage({ type: 'googleTTSEnded' }).catch(() => {});
     }
   }
 

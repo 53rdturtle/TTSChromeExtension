@@ -29,7 +29,7 @@
       "suggested_key": {
         "default": "Ctrl+Q"
       },
-      "description": "Open TTS popup"
+      "description": "Toggle TTS: Start/Stop speaking"
     }
   },
   "web_accessible_resources": [
