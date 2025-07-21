@@ -101,14 +101,20 @@ class GoogleTTSService {
     };
 
     try {
-      // Make API call
+      // Make API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${this.endpoint}?key=${apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -128,8 +134,13 @@ class GoogleTTSService {
       };
 
     } catch (error) {
-      console.error('Google TTS synthesis error:', error);
-      throw error;
+      if (error.name === 'AbortError') {
+        console.error('Google TTS synthesis request timed out after 30 seconds');
+        throw new Error('Google TTS synthesis timed out. Please try again.');
+      } else {
+        console.error('Google TTS synthesis error:', error);
+        throw error;
+      }
     }
   }
 
@@ -267,7 +278,59 @@ class GoogleTTSService {
     };
   }
 
-  // Full speak method that synthesizes and plays
+  // Speak with SSML highlighting support
+  async speakWithHighlighting(text, options = {}) {
+    try {
+      // SSML builder should be pre-loaded in background.js
+      if (typeof SSMLBuilder === 'undefined') {
+        throw new Error('SSML Builder not available - ensure it is imported in background.js');
+      }
+      
+      // Check quota before synthesis
+      const quotaStatus = await this.checkQuotaStatus();
+      if (quotaStatus.percentage >= 100) {
+        throw new Error('Google TTS monthly quota exceeded. Please try again next month or upgrade your plan.');
+      }
+      
+      // Send quota warnings
+      if (quotaStatus.warning) {
+        chrome.runtime.sendMessage({ 
+          type: 'quotaWarning', 
+          quotaData: quotaStatus 
+        }, () => {
+          if (chrome.runtime.lastError) {
+            // Ignore quota warning message errors
+            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
+          }
+        });
+      }
+      
+      // For now, use regular synthesis since SSML timing isn't supported
+      // Create SSML for future use, but use regular synthesis for compatibility
+      const ssmlResult = SSMLBuilder.createBasicSSML(text);
+      console.log('Created SSML (for future use):', ssmlResult.ssml);
+      
+      // Store for event handling
+      this.currentText = text;
+      
+      // Use regular synthesis for compatibility
+      const result = await this.synthesize(text, options);
+      
+      // Track usage
+      await this.trackUsage(text.length);
+      
+      // Play audio with highlighting (immediate highlighting when audio starts)
+      await this.playAudioWithMarkEvents(result.audioContent, ssmlResult.marks);
+      
+      return { status: 'speaking', service: 'google', mode: 'ssml' };
+      
+    } catch (error) {
+      console.error('GoogleTTS speak with highlighting error:', error);
+      throw error;
+    }
+  }
+
+  // Full speak method that synthesizes and plays (legacy - without highlighting)
   async speak(text, options = {}) {
     try {
       // Check quota before synthesis
@@ -282,12 +345,22 @@ class GoogleTTSService {
         chrome.runtime.sendMessage({ 
           type: 'quotaWarning', 
           quotaData: quotaStatus 
+        }, () => {
+          if (chrome.runtime.lastError) {
+            // Ignore quota warning message errors
+            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
+          }
         });
       } else if (quotaStatus.warning === 'high') {
         console.warn('⚠️ Google TTS quota at 80%. Monitor usage carefully.');
         chrome.runtime.sendMessage({ 
           type: 'quotaWarning', 
           quotaData: quotaStatus 
+        }, () => {
+          if (chrome.runtime.lastError) {
+            // Ignore quota warning message errors
+            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
+          }
         });
       }
       
@@ -308,6 +381,125 @@ class GoogleTTSService {
     }
   }
 
+  // Load SSML builder utility (now pre-loaded in background.js)
+  async loadSSMLBuilder() {
+    // SSML Builder is now pre-loaded in background.js via importScripts
+    return Promise.resolve();
+  }
+
+  // Synthesize speech using SSML
+  async synthesizeSSML(ssml, options = {}) {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) {
+      throw new Error('Google TTS API key not configured');
+    }
+
+    // Get voice configuration
+    const googleVoiceConfig = this.getVoiceConfig(options.voiceName);
+
+    // Prepare request payload for SSML
+    const request = {
+      input: { ssml: ssml },  // Use SSML instead of text
+      voice: { 
+        languageCode: googleVoiceConfig.lang, 
+        name: googleVoiceConfig.voice
+      },
+      audioConfig: { 
+        audioEncoding: 'MP3',
+        speakingRate: options.rate || 1.0,
+        pitch: options.pitch || 0.0,
+        volumeGainDb: options.volumeGainDb || 0.0
+      }
+      // Note: enableTimePointing is not supported by Google Cloud TTS API
+    };
+
+    try {
+      console.log('Synthesizing SSML:', request);
+      
+      // Make API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for synthesis
+      
+      const response = await fetch(`${this.endpoint}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Google TTS API error: ${response.status} - ${errorData.error?.message || errorData.error || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      
+      console.log('SSML synthesis result:', {
+        hasAudioContent: !!data.audioContent
+      });
+
+      return {
+        audioContent: data.audioContent
+      };
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('Google TTS synthesis request timed out after 30 seconds');
+        throw new Error('Google TTS synthesis timed out. Please try again.');
+      } else {
+        console.error('Google TTS SSML synthesis error:', error);
+        throw error;
+      }
+    }
+  }
+
+  // Play audio with mark event handling
+  async playAudioWithMarkEvents(audioContent, marks) {
+    try {
+      // Ensure offscreen document exists
+      await this.ensureOffscreenDocument();
+      
+      // Store the text for highlighting directly (background script context)
+      console.log('🔧 Attempting to store text for highlighting:', this.currentText ? this.currentText.substring(0, 50) + '...' : 'null');
+      console.log('🔧 setGoogleTTSCurrentText function available:', typeof setGoogleTTSCurrentText);
+      if (typeof setGoogleTTSCurrentText === 'function') {
+        setGoogleTTSCurrentText(this.currentText);
+      } else {
+        console.warn('❌ setGoogleTTSCurrentText function not available - storing directly');
+        // Fallback: try to access the global variable directly
+        if (typeof googleTTSCurrentText !== 'undefined') {
+          googleTTSCurrentText = this.currentText;
+          console.log('📝 Stored text directly in global variable');
+        }
+      }
+      
+      // Send audio to offscreen document - it will trigger googleTTSStarted which will use the stored text
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'playGoogleTTS',
+          audioData: audioContent
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error in playAudioWithMarkEvents:', chrome.runtime.lastError);
+            resolve({ status: 'error', error: chrome.runtime.lastError.message });
+          } else if (response && response.status === 'playing') {
+            resolve({ status: 'success', message: 'Audio playback started' });
+          } else {
+            resolve({ status: 'error', error: 'Failed to play audio' });
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.error('Error in playAudioWithMarkEvents setup:', error);
+      return { status: 'error', error: error.message };
+    }
+  }
+
   // Get available voices from Google TTS API
   async getVoices(languageCode = null) {
     // Get API key
@@ -324,8 +516,15 @@ class GoogleTTSService {
         url += `&languageCode=${languageCode}`;
       }
 
-      // Make API call
-      const response = await fetch(url);
+      // Make API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.error('Google TTS voices API error:', response.status, response.statusText);
@@ -346,7 +545,11 @@ class GoogleTTSService {
       }));
 
     } catch (error) {
-      console.error('Error fetching Google TTS voices:', error);
+      if (error.name === 'AbortError') {
+        console.error('Google TTS voices API request timed out after 10 seconds');
+      } else {
+        console.error('Error fetching Google TTS voices:', error);
+      }
       return [];
     }
   }

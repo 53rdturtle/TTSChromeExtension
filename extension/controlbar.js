@@ -426,7 +426,9 @@ class FloatingControlBar {
     // Stop button
     this.controlBar.querySelector('#tts-stop-btn').addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'stop' }, (response) => {
-        if (response && response.status === 'stopped') {
+        if (chrome.runtime.lastError) {
+          console.warn('Error stopping from control bar:', chrome.runtime.lastError);
+        } else if (response && response.status === 'stopped') {
           this.updateStatus(false);
         }
       });
@@ -440,14 +442,18 @@ class FloatingControlBar {
       if (isResumeState) {
         // Currently showing resume, so resume playback
         chrome.runtime.sendMessage({ type: 'resume' }, (response) => {
-          if (response && response.status === 'resumed') {
+          if (chrome.runtime.lastError) {
+            console.warn('Error resuming from control bar:', chrome.runtime.lastError);
+          } else if (response && response.status === 'resumed') {
             this.updateStatus(true, false); // speaking state
           }
         });
       } else {
         // Currently showing pause, so pause playback
         chrome.runtime.sendMessage({ type: 'pause' }, (response) => {
-          if (response && response.status === 'paused') {
+          if (chrome.runtime.lastError) {
+            console.warn('Error pausing from control bar:', chrome.runtime.lastError);
+          } else if (response && response.status === 'paused') {
             this.updateStatus(false, true); // paused state
           }
         });
@@ -670,7 +676,9 @@ class FloatingControlBar {
           type: 'updateSpeed', 
           rate: newRate 
         }, (response) => {
-          if (response && response.status === 'error') {
+          if (chrome.runtime.lastError) {
+            console.warn('Error updating speed:', chrome.runtime.lastError);
+          } else if (response && response.status === 'error') {
             console.error('Speed update error:', response.error);
           }
         });

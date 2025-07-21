@@ -268,6 +268,11 @@ class OptionsController {
   async loadVoices() {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage({ type: 'getVoices' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error getting voices in options:', chrome.runtime.lastError);
+          resolve();
+          return;
+        }
         if (response && response.voices) {
           this.voices = response.voices;
           this.populateVoiceSelect();
@@ -456,7 +461,16 @@ class OptionsController {
   // Google TTS Functions
   async updateQuotaDisplay() {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'getQuotaUsage' });
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'getQuotaUsage' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error getting quota usage:', chrome.runtime.lastError);
+            resolve(null);
+          } else {
+            resolve(response);
+          }
+        });
+      });
       if (response && response.usage !== undefined) {
         const percentage = Math.round((response.usage / 1000000) * 100);
         document.getElementById('quotaText').textContent = 
@@ -1034,7 +1048,14 @@ class OptionsController {
 
   async stopVoiceTest() {
     try {
-      await chrome.runtime.sendMessage({ type: 'stop' });
+      await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'stop' }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Error stopping voice test:', chrome.runtime.lastError);
+          }
+          resolve();
+        });
+      });
     } catch (error) {
       console.error('Error stopping voice test:', error);
     }
@@ -1202,7 +1223,16 @@ class OptionsController {
   // Quota Management
   async loadQuotaUsage() {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'getQuotaUsage' });
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'getQuotaUsage' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error loading quota usage:', chrome.runtime.lastError);
+            resolve(null);
+          } else {
+            resolve(response);
+          }
+        });
+      });
       if (response && response.status === 'success' && response.quota) {
         this.updateQuotaDisplay(response.quota);
       }

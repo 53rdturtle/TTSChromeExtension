@@ -31,5 +31,11 @@
       },
       "description": "Open TTS popup"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["utils/ssml-builder.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 } 

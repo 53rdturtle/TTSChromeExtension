@@ -224,7 +224,7 @@ describe('Google TTS Quota Management', () => {
         quotaData: expect.objectContaining({
           warning: 'high'
         })
-      });
+      }, expect.any(Function));
     });
 
     test('should send critical warning message at 95% usage', async () => {
@@ -238,7 +238,7 @@ describe('Google TTS Quota Management', () => {
         quotaData: expect.objectContaining({
           warning: 'critical'
         })
-      });
+      }, expect.any(Function));
     });
 
     test('should throw error when quota exceeded', async () => {

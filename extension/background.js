@@ -1,7 +1,15 @@
 // Background service worker for TTS Chrome Extension
 
-// Import Google TTS service
+// Import Google TTS service and dependencies
+importScripts('utils/ssml-builder.js');
 importScripts('services/google-tts.js');
+
+// Verify SSML Builder was loaded successfully
+if (typeof SSMLBuilder === 'undefined') {
+  console.error('❌ SSML Builder failed to load in service worker context');
+} else {
+  console.log('✅ SSML Builder loaded successfully in service worker');
+}
 
 // Default highlighting settings - Enhanced per-mode configuration
 const DEFAULT_HIGHLIGHTING_SETTINGS = {
@@ -331,6 +339,8 @@ class MessageHandler {
         await this.handleGetQuotaUsage(sendResponse);
       } else if (message.type === 'previewVoice') {
         await this.handlePreviewVoice(message, sendResponse);
+      } else if (message.type === 'testGoogleTTSEnabled') {
+        await this.handleTestGoogleTTSEnabled(sendResponse);
       } else {
         console.log('Unknown message type:', message.type);
         sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -356,30 +366,38 @@ class MessageHandler {
     try {
       // Check if Google TTS is enabled
       const useGoogleTTS = await googleTTSService.isEnabled();
+      console.log('🔍 Google TTS enabled check result:', useGoogleTTS);
       
       if (useGoogleTTS) {
-        const result = await googleTTSService.speak(message.text, options);
+        console.log('🎵 Using Google TTS with SSML highlighting');
+        // Use SSML highlighting for Google TTS
+        const result = await googleTTSService.speakWithHighlighting(message.text, options);
         sendResponse(result);
         
       } else {
+        console.log('🎤 Using Chrome TTS (Google TTS disabled or not configured)');
         const result = await this.ttsService.speak(message.text, options);
         sendResponse(result);
       }
       
     } catch (error) {
-      console.error('TTS service speak error:', error);
+      console.error('❌ TTS service speak error:', error);
+      console.error('Error details:', error.message, error.stack);
       
-      // If Google TTS fails, try fallback to Chrome TTS
-      if (await googleTTSService.isEnabled()) {
+      // If Google TTS was enabled but failed, try fallback to Chrome TTS
+      const wasGoogleEnabled = await googleTTSService.isEnabled();
+      if (wasGoogleEnabled) {
         console.log('⚠️ Google TTS failed, falling back to Chrome TTS');
+        console.log('Original error:', error.message);
         try {
           const result = await this.ttsService.speak(message.text, options);
           sendResponse(result);
         } catch (fallbackError) {
-          console.error('Chrome TTS fallback also failed:', fallbackError);
+          console.error('❌ Chrome TTS fallback also failed:', fallbackError);
           sendResponse({ status: 'error', error: fallbackError.message || fallbackError });
         }
       } else {
+        console.log('❌ Google TTS was disabled, original error was not due to Google TTS');
         sendResponse({ status: 'error', error: error.message || error });
       }
     }
@@ -608,12 +626,44 @@ class MessageHandler {
       sendResponse({ status: 'error', error: error.message });
     }
   }
+
+  // Handle test Google TTS enabled message (for debugging)
+  async handleTestGoogleTTSEnabled(sendResponse) {
+    try {
+      const isEnabled = await googleTTSService.isEnabled();
+      const apiKey = await googleTTSService.getApiKey();
+      
+      sendResponse({ 
+        status: 'success', 
+        enabled: isEnabled,
+        hasApiKey: !!apiKey,
+        ssmlBuilderAvailable: typeof SSMLBuilder !== 'undefined'
+      });
+    } catch (error) {
+      console.error('Error testing Google TTS enabled:', error);
+      sendResponse({ status: 'error', error: error.message });
+    }
+  }
 }
 
 // Initialize services
 const ttsService = new TTSService();
 const googleTTSService = new GoogleTTSService();
 const messageHandler = new MessageHandler(ttsService);
+
+// Store Google TTS text for highlighting (global scope)
+var googleTTSCurrentText = null;
+
+// Function to set Google TTS text (called directly by Google TTS service)
+function setGoogleTTSCurrentText(text) {
+  googleTTSCurrentText = text;
+  console.log('📝 Stored Google TTS text for highlighting:', text ? text.substring(0, 50) + '...' : 'null');
+}
+
+// Make function globally accessible
+globalThis.setGoogleTTSCurrentText = setGoogleTTSCurrentText;
+globalThis.googleTTSCurrentText = googleTTSCurrentText;
+
 
 // Set up message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -629,6 +679,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     globalTTSState.isSpeaking = true;
     globalTTSState.isPaused = false;
     globalTTSState.showControlBar = true;
+    
+    // Trigger highlighting if we have stored text (same as Chrome TTS)
+    if (googleTTSCurrentText) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          globalTTSState.originatingTabId = tabs[0].id;
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'highlightText',
+            text: googleTTSCurrentText,
+            action: 'start'
+          }).catch(() => {
+            // Content script might not be loaded, ignore error
+          });
+        }
+      });
+    }
+    
     broadcastControlBarState();
     sendResponse({ status: 'success' });
     return true;
@@ -638,6 +705,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     globalTTSState.isSpeaking = false;
     globalTTSState.isPaused = false;
     globalTTSState.showControlBar = false;
+    globalTTSState.originatingTabId = null;
+    
+    // Clear highlighting (same as Chrome TTS)
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:'))) {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'highlightText',
+            action: 'end'
+          }).catch(() => {
+            // Ignore errors for tabs without content scripts
+          });
+        }
+      });
+    });
+    
+    // Clear stored text
+    googleTTSCurrentText = null;
+    
     broadcastControlBarState();
     sendResponse({ status: 'success' });
     return true;
@@ -667,6 +753,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ status: 'received' });
     return true;
   }
+  
   
   // Handle offscreen document messages (playGoogleTTS, stopGoogleTTS, etc.)
   if (message.type === 'playGoogleTTS' || message.type === 'stopGoogleTTS' || 

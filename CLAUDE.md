@@ -28,6 +28,7 @@ This is a Chrome extension that provides text-to-speech functionality with a com
 
 2. **Popup Interface** (`extension/popup.js`)
    - `TTSController` class (lines 4-339): Manages popup UI, voice selection, rate control
+   - **Auto-speak feature**: Automatically speaks selected text when popup opens
    - Handles user input, voice persistence, and TTS controls
 
 3. **Content Script** (`extension/controlbar.js`)
@@ -220,3 +221,7 @@ Auto-scroll, animations, layered highlighting, and polish.
 ## Git Workflow
 
 **IMPORTANT**: Do not commit or push to origin unless explicitly instructed by the user. Only make code changes, run tests, and update documentation. Wait for explicit instructions before running git commands.
+
+## Product Feature Considerations
+
+- Product should auto-speak when opening the popup

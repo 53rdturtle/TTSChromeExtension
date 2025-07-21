@@ -49,9 +49,20 @@ class TTSController {
     return new Promise((resolve) => {
       // First try to get selected text from the active tab
       chrome.runtime.sendMessage({ type: 'getSelectedText' }, (response) => {
-        if (response && response.selectedText && response.selectedText.trim()) {
+        console.log('🔍 getSelectedText response:', response);
+        if (chrome.runtime.lastError) {
+          console.warn('Error getting selected text:', chrome.runtime.lastError);
+          // Continue with loading saved text
+        } else if (response && response.selectedText && response.selectedText.trim()) {
+          console.log('✅ Found selected text:', response.selectedText.substring(0, 50) + '...');
           this.elements.textArea.value = response.selectedText;
+          
+          // Auto-speak the selected text after a short delay to ensure popup is ready
+          setTimeout(() => {
+            this.autoSpeak();
+          }, 100);
         } else {
+          console.log('❌ No selected text found, loading saved text');
           // If no selected text, load saved text
           chrome.storage.sync.get(['savedText'], (result) => {
             if (result.savedText) {
@@ -78,6 +89,10 @@ class TTSController {
   // Populate voices dropdown with enhanced formatting
   populateVoices() {
     chrome.runtime.sendMessage({ type: 'getVoices' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error getting voices:', chrome.runtime.lastError);
+        return;
+      }
       if (response && response.voices) {
         // Check if there are favorite voices - if so, show only favorites
         chrome.storage.sync.get(['favoriteVoices', 'savedVoice'], (settings) => {
@@ -227,6 +242,9 @@ class TTSController {
       voiceName: selectedVoice,
       rate: rate
     }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error in voice preview:', chrome.runtime.lastError);
+      }
       setTimeout(() => {
         this.elements.previewVoiceBtn.disabled = false;
         this.elements.previewVoiceBtn.textContent = '🔊';
@@ -246,11 +264,27 @@ class TTSController {
     this.saveVoice();
   }
 
+  // Auto-speak functionality (triggered when popup opens with selected text)
+  autoSpeak() {
+    console.log('🚀 Auto-speaking selected text');
+    
+    // Check if voices are loaded, if not wait a bit
+    if (!this.elements.voiceSelect.value) {
+      console.log('⏳ Waiting for voices to load...');
+      setTimeout(() => this.autoSpeak(), 200);
+      return;
+    }
+    
+    this.speak();
+  }
+
   // Speak functionality
   speak() {
     const text = this.elements.textArea.value.trim();
     const voiceName = this.elements.voiceSelect.value;
     const rate = parseFloat(this.elements.rateRange.value);
+
+    console.log('🎤 Speak button clicked:', { text: text.substring(0, 50) + '...', voiceName, rate });
 
     if (!text) {
       this.showStatus('Please enter some text to speak', 'error');
@@ -266,13 +300,19 @@ class TTSController {
     this.elements.stopBtn.disabled = false;
     this.showStatus('Speaking...', 'speaking');
 
+    console.log('📤 Sending speak message to background script');
+
     chrome.runtime.sendMessage({
       type: 'speak',
       text: text,
       voiceName: voiceName,
       rate: rate
     }, (response) => {
-      if (response && response.status === 'speaking') {
+      if (chrome.runtime.lastError) {
+        console.error('Error starting speech:', chrome.runtime.lastError);
+        this.showStatus('Error: Could not start speech', 'error');
+        this.resetButtons();
+      } else if (response && response.status === 'speaking') {
         // Speech started successfully
       } else {
         this.showStatus('Error: Could not start speech', 'error');
@@ -287,6 +327,9 @@ class TTSController {
   // Stop functionality
   stop() {
     chrome.runtime.sendMessage({ type: 'stop' }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Error stopping speech:', chrome.runtime.lastError);
+      }
       this.showStatus('Stopped');
       this.resetButtons();
     });
@@ -304,7 +347,16 @@ class TTSController {
       chrome.storage.sync.get(['googleTTSEnabled'], async (settings) => {
         if (!settings.googleTTSEnabled) return;
 
-        const response = await chrome.runtime.sendMessage({ type: 'getQuotaUsage' });
+        const response = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'getQuotaUsage' }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('Error checking quota status:', chrome.runtime.lastError);
+              resolve(null);
+            } else {
+              resolve(response);
+            }
+          });
+        });
         if (response && response.status === 'success' && response.quota) {
           this.showQuotaWarningIfNeeded(response.quota);
         }
@@ -334,6 +386,11 @@ class TTSController {
   listenForSpeechEnd() {
     const checkSpeechStatus = () => {
       chrome.runtime.sendMessage({ type: 'getSpeechStatus' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Error checking speech status:', chrome.runtime.lastError);
+          this.resetButtons();
+          return;
+        }
         if (response && response.status === 'ended') {
           this.showStatus('Finished');
           this.resetButtons();

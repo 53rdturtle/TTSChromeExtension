@@ -221,7 +221,8 @@ describe('GoogleTTSService', () => {
       const voices = await service.getVoices();
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://texttospeech.googleapis.com/v1/voices?key=test-api-key'
+        'https://texttospeech.googleapis.com/v1/voices?key=test-api-key',
+        { signal: expect.any(AbortSignal) }
       );
 
       expect(voices).toEqual([
@@ -289,7 +290,8 @@ describe('GoogleTTSService', () => {
       await service.getVoices('en-US');
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://texttospeech.googleapis.com/v1/voices?key=test-api-key&languageCode=en-US'
+        'https://texttospeech.googleapis.com/v1/voices?key=test-api-key&languageCode=en-US',
+        { signal: expect.any(AbortSignal) }
       );
     });
   });
@@ -337,6 +339,7 @@ describe('GoogleTTSService', () => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: expect.any(AbortSignal),
           body: JSON.stringify({
             input: { text: 'Hello world' },
             voice: {
@@ -381,6 +384,7 @@ describe('GoogleTTSService', () => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: expect.any(AbortSignal),
           body: JSON.stringify({
             input: { text: 'Hello world' },
             voice: {
