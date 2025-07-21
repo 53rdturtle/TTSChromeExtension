@@ -278,4 +278,304 @@ describe('TTSController', () => {
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({ savedVoice: 'voice1' });
     });
   });
+
+  describe('auto-play functionality', () => {
+    beforeEach(() => {
+      // Reset mocks before each auto-play test
+      jest.clearAllMocks();
+      jest.clearAllTimers();
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    });
+
+    test('should auto-speak when popup opens with selected text', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to return selected text
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ 
+            status: 'success', 
+            selectedText: 'This is selected text to be spoken automatically' 
+          });
+        } else if (message.type === 'getVoices') {
+          callback({ 
+            status: 'success', 
+            voices: [
+              { name: 'Voice 1', lang: 'en-US', gender: 'female', quality: 'Standard', isGoogle: false }
+            ] 
+          });
+        } else if (message.type === 'speak') {
+          callback({ status: 'speaking' });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Set up voice selection to be ready
+      mockElements.voiceSelect.value = 'Voice 1';
+
+      // Create fresh controller instance with selected text
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded to initialize controller
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward the auto-speak delay (100ms)
+      jest.advanceTimersByTime(100);
+
+      // Verify that selected text was set in textarea
+      expect(mockElements.text.value).toBe('This is selected text to be spoken automatically');
+
+      // Verify that speak was called automatically
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        type: 'speak',
+        text: 'This is selected text to be spoken automatically',
+        voiceName: 'Voice 1',
+        rate: 1.0
+      }, expect.any(Function));
+    });
+
+    test('should not auto-speak when popup opens without selected text', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to return no selected text
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ status: 'success', selectedText: null });
+        } else if (message.type === 'getVoices') {
+          callback({ status: 'success', voices: [] });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Mock storage to return saved text instead
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        if (keys.includes('savedText')) {
+          callback({ savedText: 'Previously saved text' });
+        } else {
+          callback({});
+        }
+      });
+
+      // Create fresh controller instance
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward all timers
+      jest.advanceTimersByTime(1000);
+
+      // Verify that speak was NOT called automatically
+      const speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(0);
+    });
+
+    test('should not auto-speak when selected text is empty or whitespace', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to return whitespace-only text
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ status: 'success', selectedText: '   \n\t  ' });
+        } else if (message.type === 'getVoices') {
+          callback({ status: 'success', voices: [] });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Create fresh controller instance
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward all timers
+      jest.advanceTimersByTime(1000);
+
+      // Verify that speak was NOT called automatically
+      const speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(0);
+    });
+
+    test('should wait for voices to load before auto-speaking', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to return selected text
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ 
+            status: 'success', 
+            selectedText: 'Auto-speak test text' 
+          });
+        } else if (message.type === 'getVoices') {
+          // Simulate delayed voice loading
+          setTimeout(() => {
+            callback({ 
+              status: 'success', 
+              voices: [
+                { name: 'Voice 1', lang: 'en-US', gender: 'female', quality: 'Standard', isGoogle: false }
+              ] 
+            });
+          }, 150);
+        } else if (message.type === 'speak') {
+          callback({ status: 'speaking' });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Start with no voice selected (voices not loaded yet)
+      mockElements.voiceSelect.value = '';
+
+      // Create fresh controller instance
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward initial auto-speak delay (100ms)
+      jest.advanceTimersByTime(100);
+
+      // At this point, voices aren't loaded yet, so speak shouldn't be called
+      let speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(0);
+
+      // Now simulate voices being loaded
+      mockElements.voiceSelect.value = 'Voice 1';
+
+      // Fast-forward the voice loading delay (150ms) and retry delay (200ms)
+      jest.advanceTimersByTime(350);
+
+      // Now speak should be called
+      speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(1);
+      expect(speakCalls[0][0]).toEqual({
+        type: 'speak',
+        text: 'Auto-speak test text',
+        voiceName: 'Voice 1',
+        rate: 1.0
+      });
+    });
+
+    test('should handle chrome.runtime.lastError during getSelectedText gracefully', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to trigger an error
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          chrome.runtime.lastError = { message: 'Tab not found' };
+          callback(null);
+          // Clear the error after callback
+          delete chrome.runtime.lastError;
+        } else if (message.type === 'getVoices') {
+          callback({ status: 'success', voices: [] });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Mock storage to return saved text
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        if (keys.includes('savedText')) {
+          callback({ savedText: 'Fallback saved text' });
+        } else {
+          callback({});
+        }
+      });
+
+      // Create fresh controller instance
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward all timers
+      jest.advanceTimersByTime(1000);
+
+      // Should fallback to saved text instead of crashing
+      expect(chrome.storage.sync.get).toHaveBeenCalledWith(['savedVoice', 'savedRate'], expect.any(Function));
+      
+      // Should not auto-speak due to error
+      const speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(0);
+    });
+
+    test('should retry auto-speak with exponential backoff when voices not ready', () => {
+      chrome.runtime.sendMessage.mockClear();
+      
+      // Mock getSelectedText to return selected text
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message.type === 'getSelectedText') {
+          callback({ 
+            status: 'success', 
+            selectedText: 'Retry test text' 
+          });
+        } else if (message.type === 'getVoices') {
+          callback({ status: 'success', voices: [] });
+        } else if (message.type === 'speak') {
+          callback({ status: 'speaking' });
+        } else {
+          callback({ status: 'success' });
+        }
+      });
+
+      // Start with no voice selected
+      mockElements.voiceSelect.value = '';
+
+      // Create fresh controller instance
+      delete require.cache[require.resolve('../extension/popup.js')];
+      require('../extension/popup.js');
+      
+      // Trigger DOMContentLoaded
+      const DOMContentLoadedEvent = new Event('DOMContentLoaded');
+      document.dispatchEvent(DOMContentLoadedEvent);
+
+      // Fast-forward initial delay (100ms)
+      jest.advanceTimersByTime(100);
+
+      // Should have started first retry attempt with 200ms delay
+      jest.advanceTimersByTime(200);
+
+      // Voice still not ready, should retry again
+      jest.advanceTimersByTime(200);
+
+      // After multiple retries, simulate voice becoming available
+      mockElements.voiceSelect.value = 'Voice 1';
+      jest.advanceTimersByTime(200);
+
+      // Now speak should finally be called
+      const speakCalls = chrome.runtime.sendMessage.mock.calls.filter(
+        call => call[0].type === 'speak'
+      );
+      expect(speakCalls).toHaveLength(1);
+    });
+  });
 });
