@@ -604,4 +604,103 @@ describe('MessageHandler', () => {
       }));
     });
   });
+
+  describe('voice routing logic', () => {
+    beforeEach(() => {
+      // Reset mocks before each test
+      jest.clearAllMocks();
+    });
+
+    test('should route Chrome TTS voices to Chrome TTS API even when Google TTS is enabled', async () => {
+      // Mock Google TTS as enabled
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({
+          googleTTSEnabled: true,
+          googleAPIKey: 'test-api-key'
+        });
+      });
+
+      // Create mock TTS service
+      const mockTTSService = {
+        speak: jest.fn().mockResolvedValue({ status: 'speaking', service: 'chrome' }),
+        getVoices: jest.fn().mockResolvedValue([
+          { voiceName: 'Google US English', lang: 'en-US' }
+        ])
+      };
+
+      // Create handler instance with mock service
+      const handler = new MessageHandler(mockTTSService);
+
+      // Mock Google TTS service
+      global.googleTTSService = {
+        isEnabled: jest.fn().mockResolvedValue(true),
+        getVoices: jest.fn().mockResolvedValue([
+          { name: 'en-US-Neural2-F', isGoogle: true, lang: 'en-US' }
+        ]),
+        speakWithHighlighting: jest.fn().mockResolvedValue({ status: 'speaking', service: 'google' })
+      };
+
+      // Mock the handler's getVoices method to return mixed voice types
+      jest.spyOn(handler, 'handleGetVoices').mockImplementation(async (sendResponse) => {
+        sendResponse({
+          status: 'success',
+          voices: [
+            { name: 'Google US English', isGoogle: false, lang: 'en-US' },
+            { name: 'en-US-Neural2-F', isGoogle: true, lang: 'en-US' }
+          ]
+        });
+      });
+
+      const message = {
+        type: 'speak',
+        text: 'Hello world',
+        voiceName: 'Google US English', // This is a Chrome TTS voice
+        rate: 1.0
+      };
+
+      const mockSendResponse = jest.fn();
+      await handler.handleMessage(message, null, mockSendResponse);
+
+      // Should use Chrome TTS, not Google TTS
+      expect(mockTTSService.speak).toHaveBeenCalledWith('Hello world', {
+        rate: 1.0,
+        voiceName: 'Google US English'
+      });
+
+      // Should not attempt Google TTS
+      expect(global.googleTTSService.speakWithHighlighting).not.toHaveBeenCalled();
+      expect(mockSendResponse).toHaveBeenCalledWith({ status: 'speaking', service: 'chrome' });
+    });
+
+    test('should correctly identify Google TTS voice patterns', async () => {
+      // Create mock TTS service
+      const mockTTSService = {
+        speak: jest.fn(),
+        getVoices: jest.fn()
+      };
+
+      const handler = new MessageHandler(mockTTSService);
+
+      // Mock handleGetVoices for fallback lookup
+      jest.spyOn(handler, 'handleGetVoices').mockImplementation(async (sendResponse) => {
+        sendResponse({
+          status: 'success',
+          voices: [
+            { name: 'Google US English', isGoogle: false, lang: 'en-US' },
+            { name: 'en-US-Neural2-F', isGoogle: true, lang: 'en-US' }
+          ]
+        });
+      });
+
+      // Test Google TTS voice patterns
+      expect(await handler.isGoogleTTSVoice('en-US-Neural2-F')).toBe(true);
+      expect(await handler.isGoogleTTSVoice('en-GB-WaveNet-A')).toBe(true);
+      expect(await handler.isGoogleTTSVoice('fr-FR-Standard-B')).toBe(true);
+
+      // Test Chrome TTS voice names
+      expect(await handler.isGoogleTTSVoice('Google US English')).toBe(false);
+      expect(await handler.isGoogleTTSVoice('Microsoft Zira')).toBe(false);
+      expect(await handler.isGoogleTTSVoice('Alex')).toBe(false);
+    });
+  });
 });

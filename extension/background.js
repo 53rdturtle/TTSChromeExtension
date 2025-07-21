@@ -364,18 +364,25 @@ class MessageHandler {
     };
 
     try {
-      // Check if Google TTS is enabled
-      const useGoogleTTS = await googleTTSService.isEnabled();
-      console.log('🔍 Google TTS enabled check result:', useGoogleTTS);
+      // Determine if this is a Google TTS voice or Chrome TTS voice
+      const isGoogleTTSVoice = await this.isGoogleTTSVoice(message.voiceName);
+      const googleTTSEnabled = await googleTTSService.isEnabled();
       
-      if (useGoogleTTS) {
-        console.log('🎵 Using Google TTS with SSML highlighting');
-        // Use SSML highlighting for Google TTS
+      console.log('🔍 Voice routing decision:', {
+        voiceName: message.voiceName,
+        isGoogleTTSVoice,
+        googleTTSEnabled,
+        willUseGoogleTTS: isGoogleTTSVoice && googleTTSEnabled
+      });
+      
+      if (isGoogleTTSVoice && googleTTSEnabled) {
+        console.log('🎵 Using Google TTS API with SSML highlighting');
+        // Use SSML highlighting for Google TTS voices
         const result = await googleTTSService.speakWithHighlighting(message.text, options);
         sendResponse(result);
         
       } else {
-        console.log('🎤 Using Chrome TTS (Google TTS disabled or not configured)');
+        console.log('🎤 Using Chrome TTS API');
         const result = await this.ttsService.speak(message.text, options);
         sendResponse(result);
       }
@@ -384,9 +391,11 @@ class MessageHandler {
       console.error('❌ TTS service speak error:', error);
       console.error('Error details:', error.message, error.stack);
       
-      // If Google TTS was enabled but failed, try fallback to Chrome TTS
-      const wasGoogleEnabled = await googleTTSService.isEnabled();
-      if (wasGoogleEnabled) {
+      // If we were trying to use Google TTS but failed, try fallback to Chrome TTS
+      const isGoogleTTSVoice = await this.isGoogleTTSVoice(message.voiceName);
+      const googleTTSEnabled = await googleTTSService.isEnabled();
+      
+      if (isGoogleTTSVoice && googleTTSEnabled) {
         console.log('⚠️ Google TTS failed, falling back to Chrome TTS');
         console.log('Original error:', error.message);
         try {
@@ -397,9 +406,33 @@ class MessageHandler {
           sendResponse({ status: 'error', error: fallbackError.message || fallbackError });
         }
       } else {
-        console.log('❌ Google TTS was disabled, original error was not due to Google TTS');
+        console.log('❌ Chrome TTS error (not a Google TTS fallback scenario)');
         sendResponse({ status: 'error', error: error.message || error });
       }
+    }
+  }
+
+  // Check if a voice is a Google TTS voice or Chrome TTS voice
+  async isGoogleTTSVoice(voiceName) {
+    if (!voiceName) return false;
+
+    // Google TTS voice names follow pattern: language-region-type-variant (e.g. "en-US-Neural2-F")
+    const googleVoicePattern = /^[a-z]{2}-[A-Z]{2}-.+/;
+    
+    if (googleVoicePattern.test(voiceName)) {
+      return true;
+    }
+
+    // Get the unified voice list to check isGoogle flag
+    try {
+      const voiceResponse = await new Promise((resolve) => {
+        this.handleGetVoices(resolve);
+      });
+      const voice = voiceResponse.voices?.find(v => v.name === voiceName);
+      return voice ? voice.isGoogle : false;
+    } catch (error) {
+      console.warn('Could not determine voice type for:', voiceName, error);
+      return false;
     }
   }
 

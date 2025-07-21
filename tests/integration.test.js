@@ -40,6 +40,21 @@ describe('Integration Tests', () => {
     ttsService = new TTSService();
     messageHandler = new MessageHandler(ttsService);
     chrome.runtime.lastError = null;
+    
+    // Mock Google TTS service for integration tests
+    global.googleTTSService = {
+      isEnabled: jest.fn().mockResolvedValue(false), // Default to Chrome TTS
+      speakWithHighlighting: jest.fn(),
+      getVoices: jest.fn().mockResolvedValue([])
+    };
+    
+    // Mock storage for Google TTS settings
+    chrome.storage.sync.get.mockImplementation((keys, callback) => {
+      callback({
+        googleTTSEnabled: false, // Default to disabled
+        googleAPIKey: ''
+      });
+    });
   });
 
   describe('End-to-end TTS workflow', () => {
@@ -47,6 +62,9 @@ describe('Integration Tests', () => {
       chrome.tts.speak.mockImplementation((text, options, callback) => {
         callback();
       });
+      
+      // Mock isGoogleTTSVoice to avoid hanging
+      jest.spyOn(messageHandler, 'isGoogleTTSVoice').mockResolvedValue(false);
 
       const message = {
         type: 'speak',
