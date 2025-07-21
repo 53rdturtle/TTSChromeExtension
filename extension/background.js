@@ -775,13 +775,18 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
   if (command === "open_popup") {
     const selectedText = await getSelectedTextFromActiveTab();
     if (selectedText) {
-      // Get last used voice and rate from storage
-      chrome.storage.sync.get(['selectedVoice', 'speechRate'], async (prefs) => {
+      // Get last used voice and rate from storage (same keys as popup)
+      chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
+        console.log('⌨️ Keyboard shortcut using settings:', { 
+          voice: prefs.savedVoice, 
+          rate: prefs.savedRate 
+        });
+        
         const message = {
           type: 'speak',
           text: selectedText,
-          rate: prefs.speechRate ? parseFloat(prefs.speechRate) : 1.0,
-          voiceName: prefs.selectedVoice
+          rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
+          voiceName: prefs.savedVoice
         };
         
         // Use the integrated handleSpeak method that includes Google TTS
