@@ -41,12 +41,22 @@ global.chrome = {
     onInstalled: {
       addListener: jest.fn()
     },
-    sendMessage: jest.fn(() => Promise.resolve()),
+    sendMessage: jest.fn((message, callback) => {
+      if (callback) {
+        setTimeout(() => callback({ status: 'success' }), 0);
+      }
+      return Promise.resolve({ status: 'success' });
+    }),
     lastError: null
   },
   tabs: {
     query: jest.fn(),
-    sendMessage: jest.fn(() => Promise.resolve()),
+    sendMessage: jest.fn((tabId, message, callback) => {
+      if (callback) {
+        setTimeout(() => callback({ status: 'success' }), 0);
+      }
+      return Promise.resolve({ status: 'success' });
+    }),
     onActivated: {
       addListener: jest.fn()
     },
@@ -184,6 +194,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   chrome.runtime.lastError = null;
   
-  // Ensure sendMessage always returns a Promise
-  chrome.tabs.sendMessage = jest.fn(() => Promise.resolve());
+  // Reset DOM mock elements to prevent accumulation
+  global.document.body.childNodes = [];
+  global.document.head.childNodes = [];
+  
+  // Clean up window mock
+  if (global.window && global.window.getSelection) {
+    global.window.getSelection.mockClear();
+  }
 });

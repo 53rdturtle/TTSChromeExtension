@@ -5,6 +5,7 @@
   "main": "background.js",
   "scripts": {
     "test": "jest --maxWorkers=1",
+    "test:debug": "node --max-old-space-size=8192 --expose-gc ./node_modules/.bin/jest --runInBand --logHeapUsage tests/content.test.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "jest --config=jest.e2e.config.js"
@@ -20,7 +21,10 @@
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ],
-    "workerIdleMemoryLimit": "500MB",
+    "workerIdleMemoryLimit": "1GB",
+    "coverageProvider": "v8",
+    "maxWorkers": 1,
+    "detectOpenHandles": true,
     "testMatch": [
       "<rootDir>/tests/background.test.js",
       "<rootDir>/tests/popup.test.js",
@@ -30,7 +34,8 @@
       "<rootDir>/tests/quota-management.test.js",
       "<rootDir>/tests/options-quota.test.js",
       "<rootDir>/tests/background-quota.test.js",
-      "<rootDir>/tests/popup-quota.test.js"
+      "<rootDir>/tests/popup-quota.test.js",
+      "<rootDir>/tests/content.test.js"
     ],
     "collectCoverageFrom": [
       "extension/**/*.js",
