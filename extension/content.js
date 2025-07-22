@@ -2,7 +2,6 @@
 // Handles floating control bar display and text highlighting
 
 // TextHighlighter class to handle text highlighting during TTS
-if (typeof window.TextHighlighter === 'undefined') {
 class TextHighlighter {
   constructor() {
     this.highlightedElements = [];
@@ -1028,10 +1027,10 @@ class TextHighlighter {
 }
 
 // Make TextHighlighter available globally
-window.TextHighlighter = TextHighlighter;
+if (typeof window !== 'undefined') {
+  window.TextHighlighter = TextHighlighter;
 }
 
-if (typeof window.FloatingControlBar === 'undefined') {
 class FloatingControlBar {
   constructor() {
     this.controlBar = null;
@@ -1563,19 +1562,21 @@ class FloatingControlBar {
 }
 
 // Make FloatingControlBar available globally
-window.FloatingControlBar = FloatingControlBar;
+if (typeof window !== 'undefined') {
+  window.FloatingControlBar = FloatingControlBar;
 }
 
 // Initialize the floating control bar and text highlighter
-if (typeof window.floatingControlBar === 'undefined') {
-  window.floatingControlBar = null;
-}
-if (typeof window.textHighlighter === 'undefined') {
-  window.textHighlighter = null;
-}
+if (typeof window !== 'undefined') {
+  if (typeof window.floatingControlBar === 'undefined') {
+    window.floatingControlBar = null;
+  }
+  if (typeof window.textHighlighter === 'undefined') {
+    window.textHighlighter = null;
+  }
 
-// Only add message listener if not already added
-if (!window.ttsMessageListenerAdded) {
+  // Only add message listener if not already added
+  if (!window.ttsMessageListenerAdded) {
   window.ttsMessageListenerAdded = true;
   
   // Listen for messages from background script
@@ -1648,6 +1649,7 @@ if (!window.ttsMessageListenerAdded) {
 
 } // End of message listener guard
 
+} // End of window check
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {

@@ -1,5 +1,5 @@
-// Tests for controlbar.js - FloatingControlBar class
-const { FloatingControlBar } = require('../extension/controlbar.js');
+// Tests for content.js - FloatingControlBar and TextHighlighter classes
+const { FloatingControlBar, TextHighlighter } = require('../extension/content.js');
 
 // Enhanced DOM mocking for controlbar tests
 const createMockElement = (id, type = 'div') => {
@@ -477,12 +477,8 @@ describe('Chrome runtime message listener', () => {
 
 describe('TextHighlighter', () => {
   let textHighlighter;
-  let TextHighlighter;
 
   beforeEach(() => {
-    // Import TextHighlighter class
-    const exports = require('../extension/controlbar.js');
-    TextHighlighter = exports.TextHighlighter;
     textHighlighter = new TextHighlighter();
   });
 

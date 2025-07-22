@@ -41,7 +41,7 @@ global.chrome = {
     onInstalled: {
       addListener: jest.fn()
     },
-    sendMessage: jest.fn(),
+    sendMessage: jest.fn(() => Promise.resolve()),
     lastError: null
   },
   tabs: {

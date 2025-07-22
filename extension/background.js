@@ -70,7 +70,7 @@ async function broadcastControlBarState() {
           // Inject content script if not already injected
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            files: ['controlbar.js']
+            files: ['content.js']
           });
           
           // Small delay to ensure content script is loaded
@@ -894,7 +894,7 @@ async function showFloatingControlBar() {
       // Inject content script if not already injected
       await chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        files: ['controlbar.js']
+        files: ['content.js']
       });
       
       // Send message to show control bar with current state
@@ -950,7 +950,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         // Inject content script and show control bar on activated tab
         await chrome.scripting.executeScript({
           target: { tabId: activeInfo.tabId },
-          files: ['controlbar.js']
+          files: ['content.js']
         });
         
         // Small delay to ensure content script is loaded
@@ -980,7 +980,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         // Inject content script and show control bar on updated tab
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
-          files: ['controlbar.js']
+          files: ['content.js']
         });
         
         setTimeout(() => {

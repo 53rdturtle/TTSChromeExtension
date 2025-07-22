@@ -4,7 +4,7 @@
   "description": "A Chrome extension for text-to-speech functionality with comprehensive testing",
   "main": "background.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --maxWorkers=1",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "jest --config=jest.e2e.config.js"
@@ -20,6 +20,7 @@
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ],
+    "workerIdleMemoryLimit": "500MB",
     "testMatch": [
       "<rootDir>/tests/background.test.js",
       "<rootDir>/tests/popup.test.js",

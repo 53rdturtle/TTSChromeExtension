@@ -16,7 +16,9 @@
       "WebFetch(domain:winkjs.org)",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(node:*)",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(head:*)",
+      "Bash(npm run test:e2e:*)"
     ],
     "deny": []
   }
