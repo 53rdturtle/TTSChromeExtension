@@ -3,6 +3,7 @@
 class GoogleTTSService {
   constructor() {
     this.endpoint = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+    this.betaEndpoint = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize';
     this.apiKey = null;
   }
 
@@ -305,24 +306,81 @@ class GoogleTTSService {
         });
       }
       
-      // For now, use regular synthesis since SSML timing isn't supported
-      // Create SSML for future use, but use regular synthesis for compatibility
-      const ssmlResult = SSMLBuilder.createBasicSSML(text);
-      console.log('Created SSML (for future use):', ssmlResult.ssml);
+      // Check if sentence highlighting is enabled and voice supports it
+      const highlightingSettings = await this.getHighlightingSettings();
+      const sentenceHighlightingEnabled = highlightingSettings?.sentence?.enabled || false;
+      const voiceSupportsMarks = this.supportsSSMLMarks(options.voiceName);
+      const useSentenceHighlighting = sentenceHighlightingEnabled && voiceSupportsMarks;
       
-      // Store for event handling
-      this.currentText = text;
+      let ssmlResult;
+      let result;
       
-      // Use regular synthesis for compatibility
-      const result = await this.synthesize(text, options);
+      if (useSentenceHighlighting) {
+        console.log('🎯 Using sentence-level SSML for enhanced highlighting with', options.voiceName);
+        
+        // Create sentence-level SSML with marks
+        ssmlResult = await SSMLBuilder.createSentenceSSML(text, options.lang || 'en');
+        console.log('📝 Created sentence SSML:', ssmlResult.totalSentences, 'sentences,', ssmlResult.marks.length, 'marks');
+        
+        // Store sentence data for highlighting
+        this.currentText = text;
+        this.currentSentenceData = ssmlResult;
+        
+        // Use SSML synthesis for sentence highlighting (voice already verified to support marks)
+        result = await this.synthesizeSSML(ssmlResult.ssml, options);
+        
+      } else if (sentenceHighlightingEnabled && !voiceSupportsMarks) {
+        console.log('📢 Studio voice detected:', options.voiceName, '- Using regular synthesis with full selection highlighting');
+        
+        // Create basic SSML for full selection highlighting (Studio voices)
+        ssmlResult = SSMLBuilder.createBasicSSML(text);
+        console.log('📝 Using full selection highlighting for Studio voice');
+        
+        // Store for event handling (no sentence data for Studio voices)
+        this.currentText = text;
+        this.currentSentenceData = null;
+        
+        // Use regular synthesis for Studio voices
+        result = await this.synthesize(text, options);
+        
+      } else {
+        console.log('📝 Using regular synthesis with full selection highlighting');
+        
+        // Create basic SSML for full selection highlighting
+        ssmlResult = SSMLBuilder.createBasicSSML(text);
+        console.log('Created basic SSML:', ssmlResult.ssml);
+        
+        // Store for event handling
+        this.currentText = text;
+        this.currentSentenceData = null;
+        
+        // Use regular synthesis 
+        result = await this.synthesize(text, options);
+      }
       
       // Track usage
       await this.trackUsage(text.length);
       
-      // Play audio with highlighting (immediate highlighting when audio starts)
-      await this.playAudioWithMarkEvents(result.audioContent, ssmlResult.marks);
+      // Play audio with highlighting and timing events
+      await this.playAudioWithMarkEvents(result.audioContent, ssmlResult.marks, ssmlResult, result.timepoints);
       
-      return { status: 'speaking', service: 'google', mode: 'ssml' };
+      // Determine the actual mode used
+      let mode;
+      if (useSentenceHighlighting) {
+        mode = 'sentence_ssml';
+      } else if (sentenceHighlightingEnabled && !voiceSupportsMarks) {
+        mode = 'studio_voice_fallback';
+      } else {
+        mode = 'basic_ssml';
+      }
+      
+      return { 
+        status: 'speaking', 
+        service: 'google', 
+        mode: mode,
+        sentences: ssmlResult.totalSentences || 0,
+        voiceType: voiceSupportsMarks ? 'compatible' : 'studio'
+      };
       
     } catch (error) {
       console.error('GoogleTTS speak with highlighting error:', error);
@@ -381,13 +439,54 @@ class GoogleTTSService {
     }
   }
 
+  // Check if a voice supports SSML marks (for sentence highlighting)
+  supportsSSMLMarks(voiceName) {
+    if (!voiceName) return false;
+    
+    // Studio voices don't support <mark> tags
+    if (voiceName.includes('Studio')) {
+      return false;
+    }
+    
+    // Standard, Neural2, and WaveNet voices support <mark> tags
+    if (voiceName.includes('Standard') || 
+        voiceName.includes('Neural2') || 
+        voiceName.includes('WaveNet')) {
+      return true;
+    }
+    
+    // Default to true for other Google voices (they likely support marks)
+    return true;
+  }
+
+  // Get highlighting settings from storage
+  async getHighlightingSettings() {
+    try {
+      const data = await chrome.storage.sync.get({ 
+        highlightingSettings: {
+          fullSelection: { enabled: true },
+          sentence: { enabled: true },
+          word: { enabled: false }
+        }
+      });
+      return data.highlightingSettings;
+    } catch (error) {
+      console.warn('Could not load highlighting settings:', error);
+      return {
+        fullSelection: { enabled: true },
+        sentence: { enabled: true },
+        word: { enabled: false }
+      };
+    }
+  }
+
   // Load SSML builder utility (now pre-loaded in background.js)
   async loadSSMLBuilder() {
     // SSML Builder is now pre-loaded in background.js via importScripts
     return Promise.resolve();
   }
 
-  // Synthesize speech using SSML
+  // Synthesize speech using SSML with timing support
   async synthesizeSSML(ssml, options = {}) {
     const apiKey = await this.getApiKey();
     if (!apiKey) {
@@ -397,7 +496,7 @@ class GoogleTTSService {
     // Get voice configuration
     const googleVoiceConfig = this.getVoiceConfig(options.voiceName);
 
-    // Prepare request payload for SSML
+    // Prepare request payload for SSML with timing support
     const request = {
       input: { ssml: ssml },  // Use SSML instead of text
       voice: { 
@@ -409,18 +508,19 @@ class GoogleTTSService {
         speakingRate: options.rate || 1.0,
         pitch: options.pitch || 0.0,
         volumeGainDb: options.volumeGainDb || 0.0
-      }
-      // Note: enableTimePointing is not supported by Google Cloud TTS API
+      },
+      // Enable SSML mark timing events using v1beta1 API
+      enableTimePointing: ['SSML_MARK']
     };
 
     try {
-      console.log('Synthesizing SSML:', request);
+      console.log('🎯 Synthesizing SSML with timing events:', request);
       
-      // Make API call with timeout
+      // Make API call with timeout - Use v1beta1 API for timing support
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for synthesis
       
-      const response = await fetch(`${this.endpoint}?key=${apiKey}`, {
+      const response = await fetch(`${this.betaEndpoint}?key=${apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -438,12 +538,25 @@ class GoogleTTSService {
 
       const data = await response.json();
       
-      console.log('SSML synthesis result:', {
-        hasAudioContent: !!data.audioContent
+      console.log('🎯 SSML synthesis result:', {
+        hasAudioContent: !!data.audioContent,
+        hasTimepoints: !!data.timepoints,
+        timepointsCount: data.timepoints ? data.timepoints.length : 0
       });
 
+      // Log timing events if available
+      if (data.timepoints && data.timepoints.length > 0) {
+        console.log('⏰ Received timing events:', data.timepoints);
+        data.timepoints.forEach(tp => {
+          console.log(`  Mark "${tp.markName}" at ${tp.timeSeconds}s`);
+        });
+      } else {
+        console.warn('⚠️ No timing events received from v1beta1 API');
+      }
+
       return {
-        audioContent: data.audioContent
+        audioContent: data.audioContent,
+        timepoints: data.timepoints || []
       };
 
     } catch (error) {
@@ -457,15 +570,17 @@ class GoogleTTSService {
     }
   }
 
-  // Play audio with mark event handling
-  async playAudioWithMarkEvents(audioContent, marks) {
+  // Play audio with mark event handling and timing events
+  async playAudioWithMarkEvents(audioContent, marks, sentenceData = null, timepoints = []) {
     try {
       // Ensure offscreen document exists
       await this.ensureOffscreenDocument();
       
-      // Store the text for highlighting directly (background script context)
+      // Store the text and sentence data for highlighting (background script context)
       console.log('🔧 Attempting to store text for highlighting:', this.currentText ? this.currentText.substring(0, 50) + '...' : 'null');
+      console.log('🔧 Sentence data available:', sentenceData ? `${sentenceData.totalSentences} sentences` : 'none');
       console.log('🔧 setGoogleTTSCurrentText function available:', typeof setGoogleTTSCurrentText);
+      
       if (typeof setGoogleTTSCurrentText === 'function') {
         setGoogleTTSCurrentText(this.currentText);
       } else {
@@ -475,6 +590,22 @@ class GoogleTTSService {
           googleTTSCurrentText = this.currentText;
           console.log('📝 Stored text directly in global variable');
         }
+      }
+      
+      // Store sentence data globally for highlighting coordination  
+      if (typeof setGoogleTTSSentenceData === 'function') {
+        setGoogleTTSSentenceData(sentenceData);
+      } else if (typeof googleTTSSentenceData !== 'undefined') {
+        googleTTSSentenceData = sentenceData;
+        console.log('📝 Stored sentence data directly in global variable');
+      }
+      
+      // Store timepoints globally for real-time highlighting coordination
+      if (typeof setGoogleTTSTimepoints === 'function') {
+        setGoogleTTSTimepoints(timepoints);
+      } else if (typeof googleTTSTimepoints !== 'undefined') {
+        googleTTSTimepoints = timepoints;
+        console.log('⏰ Stored', timepoints.length, 'timepoints for real-time highlighting');
       }
       
       // Send audio to offscreen document - it will trigger googleTTSStarted which will use the stored text

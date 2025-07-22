@@ -2,6 +2,7 @@
 
 // Import Google TTS service and dependencies
 importScripts('utils/ssml-builder.js');
+importScripts('utils/simple-sentence-detector.js');
 importScripts('services/google-tts.js');
 
 // Verify SSML Builder was loaded successfully
@@ -9,6 +10,13 @@ if (typeof SSMLBuilder === 'undefined') {
   console.error('❌ SSML Builder failed to load in service worker context');
 } else {
   console.log('✅ SSML Builder loaded successfully in service worker');
+}
+
+// Verify SimpleSentenceDetector was loaded successfully  
+if (typeof SimpleSentenceDetector === 'undefined') {
+  console.error('❌ SimpleSentenceDetector failed to load in service worker context');
+} else {
+  console.log('✅ SimpleSentenceDetector loaded successfully in service worker');
 }
 
 // Default highlighting settings - Enhanced per-mode configuration
@@ -23,7 +31,7 @@ const DEFAULT_HIGHLIGHTING_SETTINGS = {
     }
   },
   sentence: {
-    enabled: false,
+    enabled: true,
     style: {
       backgroundColor: '#4caf50',
       textColor: '#ffffff',
@@ -689,8 +697,10 @@ const ttsService = new TTSService();
 const googleTTSService = new GoogleTTSService();
 const messageHandler = new MessageHandler(ttsService);
 
-// Store Google TTS text for highlighting (global scope)
+// Store Google TTS text, sentence data, and timing events for highlighting (global scope)
 var googleTTSCurrentText = null;
+var googleTTSSentenceData = null;
+var googleTTSTimepoints = null;
 
 // Function to set Google TTS text (called directly by Google TTS service)
 function setGoogleTTSCurrentText(text) {
@@ -698,9 +708,25 @@ function setGoogleTTSCurrentText(text) {
   console.log('📝 Stored Google TTS text for highlighting:', text ? text.substring(0, 50) + '...' : 'null');
 }
 
-// Make function globally accessible
+// Function to set Google TTS sentence data (called directly by Google TTS service)
+function setGoogleTTSSentenceData(sentenceData) {
+  googleTTSSentenceData = sentenceData;
+  console.log('📝 Stored Google TTS sentence data:', sentenceData ? `${sentenceData.totalSentences} sentences` : 'null');
+}
+
+// Function to set Google TTS timepoints (called directly by Google TTS service)
+function setGoogleTTSTimepoints(timepoints) {
+  googleTTSTimepoints = timepoints;
+  console.log('⏰ Stored Google TTS timepoints:', timepoints ? `${timepoints.length} timing events` : 'null');
+}
+
+// Make functions globally accessible
 globalThis.setGoogleTTSCurrentText = setGoogleTTSCurrentText;
+globalThis.setGoogleTTSSentenceData = setGoogleTTSSentenceData;
+globalThis.setGoogleTTSTimepoints = setGoogleTTSTimepoints;
 globalThis.googleTTSCurrentText = googleTTSCurrentText;
+globalThis.googleTTSSentenceData = googleTTSSentenceData;
+globalThis.googleTTSTimepoints = googleTTSTimepoints;
 
 
 // Set up message listener
@@ -718,17 +744,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     globalTTSState.isPaused = false;
     globalTTSState.showControlBar = true;
     
-    // Trigger highlighting if we have stored text (same as Chrome TTS)
+    // Trigger highlighting if we have stored text (with sentence support)
     if (googleTTSCurrentText) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           globalTTSState.originatingTabId = tabs[0].id;
-          chrome.tabs.sendMessage(tabs[0].id, {
+          
+          const highlightMessage = {
             type: 'highlightText',
             text: googleTTSCurrentText,
             action: 'start'
-          }).catch(() => {
-            // Content script might not be loaded, ignore error
+          };
+          
+          // Add sentence data and timepoints if available
+          if (googleTTSSentenceData) {
+            highlightMessage.sentenceData = googleTTSSentenceData;
+            highlightMessage.mode = 'sentence';
+            console.log('🎯 Enabling sentence highlighting mode with', googleTTSSentenceData.totalSentences, 'sentences');
+            
+            // Add timing events if available
+            if (googleTTSTimepoints && googleTTSTimepoints.length > 0) {
+              highlightMessage.timepoints = googleTTSTimepoints;
+              console.log('⏰ Including', googleTTSTimepoints.length, 'timing events for real-time highlighting');
+            }
+          } else {
+            highlightMessage.mode = 'fullSelection';
+          }
+          
+          chrome.tabs.sendMessage(tabs[0].id, highlightMessage).then((response) => {
+            console.log('✅ Highlighting message sent successfully:', response);
+          }).catch((error) => {
+            console.error('❌ Failed to send highlighting message:', error);
+            console.log('💡 Content script might not be loaded or tab might not support highlighting');
           });
         }
       });
@@ -759,8 +806,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     });
     
-    // Clear stored text
+    // Clear stored text, sentence data, and timepoints
     googleTTSCurrentText = null;
+    googleTTSSentenceData = null;
+    googleTTSTimepoints = null;
     
     broadcastControlBarState();
     sendResponse({ status: 'success' });

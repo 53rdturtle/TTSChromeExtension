@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sentence Highlighting</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 50px auto;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .instructions {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .test-text {
+            font-size: 16px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Sentence Highlighting Test Page</h1>
+    
+    <div class="instructions">
+        <h2>Instructions:</h2>
+        <ol>
+            <li>Load this page in Chrome with the TTS extension enabled</li>
+            <li>Select text in any of the sections below</li>
+            <li>Open the TTS popup (Ctrl+Shift+Z)</li>
+            <li>Choose a Google TTS voice (requires API key)</li>
+            <li>Click "Speak" and observe sentence-by-sentence highlighting</li>
+        </ol>
+        
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>⚠️ Voice Compatibility Notice:</strong><br>
+            Sentence highlighting requires Google TTS voices that support SSML marks:
+            <ul>
+                <li>✅ <strong>Standard voices</strong> (e.g., en-US-Standard-A)</li>
+                <li>✅ <strong>Neural2 voices</strong> (e.g., en-US-Neural2-F)</li> 
+                <li>✅ <strong>WaveNet voices</strong> (e.g., en-US-Wavenet-D)</li>
+                <li>❌ <strong>Studio voices</strong> - Do NOT support sentence highlighting</li>
+            </ul>
+            If you select a Studio voice, the extension will fall back to full selection highlighting.
+        </div>
+        
+        <p><strong>Expected Behavior:</strong></p>
+        <ul>
+            <li><strong>Standard/Neural2/WaveNet voices:</strong> Each sentence highlighted individually in green</li>
+            <li><strong>Studio voices:</strong> Full selection highlighted in yellow (fallback mode)</li>
+        </ul>
+        <p><strong>Check the browser console</strong> to see which mode is being used.</p>
+        
+        <div style="background-color: #e8f5e8; border: 1px solid #4caf50; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>🚀 Major Update:</strong> Upgraded to Google Cloud TTS v1beta1 API with real-time SSML mark timing events! Sentence highlighting now progresses automatically and precisely synchronized with the speech audio.
+        </div>
+        
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>⏰ How It Works:</strong> The extension now uses Google's official timing events from the v1beta1 API to know exactly when each sentence should be highlighted, eliminating the guesswork of timing estimation.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Simple Sentences</h2>
+        <div class="test-text">
+            Hello world! How are you today? This is a comprehensive test of sentence highlighting. Each sentence should be highlighted individually when spoken using Google TTS API.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Complex Sentences with Abbreviations</h2>
+        <div class="test-text">
+            Dr. Smith went to the U.S.A. on Jan. 1st for an important meeting. He met Prof. Johnson at the university. The meeting was scheduled for 3:30 p.m. but started at 4:00 p.m. instead.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Varied Punctuation</h2>
+        <div class="test-text">
+            What an amazing discovery! Really? I can't believe it. "This is incredible," she said enthusiastically. The results exceeded all expectations... Truly remarkable work indeed.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Technical Content</h2>
+        <div class="test-text">
+            The Chrome extension uses manifest v3 architecture. It integrates with Google Cloud Text-to-Speech API for high-quality voices. The SSML Builder creates sentence-level markup with timing marks. Progressive highlighting provides visual feedback during speech synthesis.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Long Paragraph</h2>
+        <div class="test-text">
+            Text-to-speech technology has evolved significantly over the past decade. Modern neural networks can produce remarkably natural-sounding speech that closely mimics human intonation and rhythm. Google's WaveNet and similar technologies represent a major breakthrough in speech synthesis quality. The integration of these advanced models into browser extensions opens up new possibilities for accessibility and user experience enhancement. Per-sentence highlighting adds another layer of engagement by providing visual cues that synchronize with the audio output.
+        </div>
+    </div>
+</body>
+</html>

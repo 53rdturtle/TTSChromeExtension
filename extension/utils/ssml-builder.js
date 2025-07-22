@@ -3,6 +3,26 @@
 class SSMLBuilder {
   constructor() {
     this.ssmlContent = '';
+    this.sentenceDetector = null;
+  }
+
+  // Initialize sentence detector if needed
+  async initializeSentenceDetector() {
+    if (!this.sentenceDetector) {
+      // Try to use the more sophisticated SimpleSentenceDetector first
+      if (typeof SimpleSentenceDetector !== 'undefined') {
+        this.sentenceDetector = new SimpleSentenceDetector();
+      } else if (typeof SentenceDetector !== 'undefined') {
+        this.sentenceDetector = new SentenceDetector();
+        await this.sentenceDetector.initialize();
+      } else {
+        // Fallback to basic detection
+        this.sentenceDetector = {
+          detectSentences: (text) => this.basicSentenceDetection(text)
+        };
+      }
+    }
+    return this.sentenceDetector;
   }
 
   // Create SSML for basic text highlighting (full selection)
@@ -24,6 +44,120 @@ class SSMLBuilder {
         { name: 'end', type: 'highlight_end', text: text }
       ]
     };
+  }
+
+  // Create SSML with sentence-level marks for progressive highlighting
+  async createSentenceSSML(text, language = 'en') {
+    await this.initializeSentenceDetector();
+    
+    // Get sentence metadata
+    const sentenceData = this.sentenceDetector.getSentenceMetadata 
+      ? this.sentenceDetector.getSentenceMetadata(text, language)
+      : await this.getSentenceDataFallback(text, language);
+
+    const sentences = sentenceData.sentences || sentenceData.metadata?.map(m => m.text) || [];
+    const metadata = sentenceData.metadata || [];
+
+    if (sentences.length === 0) {
+      // Fallback to basic SSML if no sentences detected
+      return SSMLBuilder.createBasicSSML(text);
+    }
+
+    // Build SSML with sentence marks
+    let ssml = '<speak>\n';
+    const marks = [];
+    
+    // Add start mark
+    ssml += '  <mark name="start"/>\n';
+    marks.push({ name: 'start', type: 'speech_start', sentenceId: null });
+
+    // Process each sentence
+    sentences.forEach((sentence, index) => {
+      const escapedSentence = SSMLBuilder.escapeSSMLText(sentence);
+      const startMark = `s${index}`;
+      const endMark = `s${index + 1}`;
+
+      // Add sentence start mark
+      ssml += `  <mark name="${startMark}"/>\n`;
+      marks.push({ 
+        name: startMark, 
+        type: 'sentence_start', 
+        sentenceId: index,
+        sentence: sentence,
+        metadata: metadata[index] || null
+      });
+
+      // Add sentence text
+      ssml += `  ${escapedSentence}\n`;
+
+      // Add sentence end mark (except for the last sentence)
+      if (index < sentences.length - 1) {
+        ssml += `  <mark name="${endMark}"/>\n`;
+        marks.push({ 
+          name: endMark, 
+          type: 'sentence_end', 
+          sentenceId: index,
+          sentence: sentence
+        });
+      }
+    });
+
+    // Add final end mark
+    ssml += '  <mark name="end"/>\n';
+    ssml += '</speak>';
+    
+    marks.push({ name: 'end', type: 'speech_end', sentenceId: null });
+
+    return {
+      ssml: ssml,
+      marks: marks,
+      sentences: sentences,
+      metadata: metadata,
+      totalSentences: sentences.length,
+      highlightingMode: 'sentence'
+    };
+  }
+
+  // Basic sentence detection fallback
+  basicSentenceDetection(text) {
+    const sentences = text
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    return {
+      sentences: sentences,
+      totalSentences: sentences.length,
+      method: 'basic_fallback'
+    };
+  }
+
+  // Fallback sentence data when advanced detector isn't available
+  async getSentenceDataFallback(text, language) {
+    const result = this.sentenceDetector.detectSentences(text, language);
+    
+    // Create basic metadata
+    const metadata = result.sentences.map((sentence, index) => ({
+      id: index,
+      text: sentence,
+      startPosition: text.indexOf(sentence),
+      endPosition: text.indexOf(sentence) + sentence.length,
+      length: sentence.length,
+      wordCount: sentence.split(/\s+/).length,
+      startMark: `s${index}`,
+      endMark: `s${index + 1}`
+    }));
+
+    return {
+      ...result,
+      metadata: metadata
+    };
+  }
+
+  // Static method to create sentence SSML (for backward compatibility)
+  static async createSentenceSSML(text, language = 'en') {
+    const builder = new SSMLBuilder();
+    return await builder.createSentenceSSML(text, language);
   }
 
   // Escape text content for use in SSML
@@ -107,6 +241,24 @@ class SSMLBuilder {
   static createTestSSML() {
     const testText = "This is a test sentence for SSML highlighting.";
     return SSMLBuilder.createBasicSSML(testText);
+  }
+
+  // Test sentence SSML creation
+  static async testSentenceSSML() {
+    const testText = "Hello world! How are you today? This is a comprehensive test of sentence highlighting.";
+    const result = await SSMLBuilder.createSentenceSSML(testText);
+    
+    console.log('🧪 Testing Sentence SSML:');
+    console.log('Text:', testText);
+    console.log('Sentences detected:', result.totalSentences);
+    console.log('SSML length:', result.ssml.length);
+    console.log('Marks count:', result.marks.length);
+    
+    result.sentences.forEach((sentence, idx) => {
+      console.log(`  ${idx + 1}: "${sentence}"`);
+    });
+    
+    return result;
   }
 }
 
