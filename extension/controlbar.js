@@ -89,7 +89,6 @@ class TextHighlighter {
         this.highlightComplexRange(range, isSentence);
       }
     } catch (error) {
-      console.error('Error highlighting text:', error);
     }
   }
 
@@ -182,7 +181,6 @@ class TextHighlighter {
           this.highlightedElements.push(highlightSpan);
         }
       } catch (e) {
-        console.error('Error highlighting text node:', e);
       }
     });
   }
@@ -217,10 +215,6 @@ class TextHighlighter {
     this.sentenceElements = [];
     this.timepoints = timepoints;
     
-    console.log('🎯 Initialized sentence highlighting:', sentenceData.totalSentences, 'sentences');
-    if (timepoints && timepoints.length > 0) {
-      console.log('⏰ Real-time timing available:', timepoints.length, 'timing events');
-    }
     
     // Store the original selection for sentence-based highlighting
     const selection = window.getSelection();
@@ -249,15 +243,12 @@ class TextHighlighter {
     this.sentenceData.sentences.forEach((sentence, index) => {
       // Find sentence position in original text, starting from where we left off
       const sentenceStart = originalText.indexOf(sentence, searchFromPos);
-      console.log(`🔍 Processing sentence ${index}: "${sentence.substring(0, 30)}..." at position ${sentenceStart}`);
       
       if (sentenceStart >= 0) {
         const sentenceEnd = sentenceStart + sentence.length;
         
         // Find which text nodes contain this sentence
         const sentenceNodeData = this.findSentenceInTextNodes(allTextNodes, sentenceStart, sentenceEnd);
-        
-        console.log(`🔍 Sentence ${index} spans nodes ${sentenceNodeData.startNodeIndex}-${sentenceNodeData.endNodeIndex}`);
         
         this.sentenceElements.push({
           index: index,
@@ -277,18 +268,13 @@ class TextHighlighter {
         
         // Move search position forward to avoid finding the same sentence again
         searchFromPos = sentenceEnd;
-      } else {
-        console.warn(`⚠️ Could not find sentence ${index} in original text`);
       }
     });
-    
-    console.log('📝 Preprocessed', this.sentenceElements.length, 'sentence elements');
   }
 
   // Create a range for a specific sentence within the original selection
   createSentenceRange(sentence, startOffset) {
     if (!this.originalSelection) {
-      console.error('❌ No original selection available for range creation');
       return null;
     }
     
@@ -297,24 +283,17 @@ class TextHighlighter {
       const originalRange = this.originalSelection.cloneRange();
       const originalText = this.originalSelection.toString();
       
-      console.log(`🔍 Creating range for: "${sentence.substring(0, 30)}..." in text: "${originalText.substring(0, 50)}..."`);
-      
       // Find the actual position of the sentence in the original text
       const sentenceStart = originalText.indexOf(sentence, startOffset);
       if (sentenceStart === -1) {
-        console.warn('❌ Could not find sentence in original text:', sentence.substring(0, 30));
         return null;
       }
       
-      console.log(`🔍 Found sentence at position ${sentenceStart}, length ${sentence.length}`);
-      
       // Create a range by walking through text nodes to find the correct position
       const result = this.createRangeFromTextPosition(originalRange, sentenceStart, sentence.length);
-      console.log(`🔍 createRangeFromTextPosition result:`, result ? 'SUCCESS' : 'FAILED');
       return result;
       
     } catch (error) {
-      console.error('❌ Error creating sentence range:', error);
       return null;
     }
   }
@@ -536,7 +515,6 @@ class TextHighlighter {
       return;
     }
 
-    console.log('🎯 Highlighting sentence', sentenceIndex, ':', sentenceElement.sentence);
 
     this.currentSentenceIndex = sentenceIndex;
     
@@ -914,13 +892,6 @@ class TextHighlighter {
         sentenceRange.setStart(startNode, startOffset);
         sentenceRange.setEnd(endNode, endOffset);
         
-        console.log('🔍 Created fresh sentence range:', {
-          startNode: startNode.textContent.substring(0, 20),
-          startOffset,
-          endNode: endNode.textContent.substring(0, 20),
-          endOffset,
-          rangeText: sentenceRange.toString().substring(0, 30)
-        });
         
         // Now highlight this range
         this.highlightFreshRange(sentenceRange, sentenceElement);
@@ -1029,7 +1000,6 @@ class TextHighlighter {
       return;
     }
 
-    console.log('⏰ Starting timing-based sentence highlighting');
     this.speechStartTime = Date.now();
     
     // Schedule highlighting for each sentence based on timing events
@@ -1041,7 +1011,6 @@ class TextHighlighter {
         const match = timepoint.markName.match(/^s(\d+)$/);
         if (match) {
           const sentenceIndex = parseInt(match[1]);
-          console.log(`⏰ Timing event: highlighting sentence ${sentenceIndex} at ${timepoint.timeSeconds}s`);
           this.highlightSentence(sentenceIndex);
         }
       }, delayMs);
@@ -1611,15 +1580,12 @@ if (!window.ttsMessageListenerAdded) {
   
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Content script received message:', message);
     
     if (!window.floatingControlBar) {
-      console.log('Creating new FloatingControlBar');
       window.floatingControlBar = new FloatingControlBar();
     }
     
     if (!window.textHighlighter) {
-      console.log('Creating new TextHighlighter');
       window.textHighlighter = new TextHighlighter();
     }
 
@@ -1648,9 +1614,9 @@ if (!window.ttsMessageListenerAdded) {
         sendResponse({ status: 'success' });
         break;
       case 'highlightText':
+        
         if (message.action === 'start') {
           if (message.mode === 'sentence' && message.sentenceData) {
-            console.log('🎯 Starting sentence highlighting mode with', message.sentenceData.totalSentences, 'sentences');
             
             // Initialize with timepoints if available
             window.textHighlighter.initializeSentenceHighlighting(
@@ -1661,18 +1627,14 @@ if (!window.ttsMessageListenerAdded) {
             
             // Start timing-based highlighting if we have timing events
             if (message.timepoints && message.timepoints.length > 0) {
-              console.log('⏰ Using real-time timing events for sentence progression');
               window.textHighlighter.startTimingBasedHighlighting();
             } else {
-              console.log('📝 No timing events, highlighting first sentence only');
               window.textHighlighter.highlightSentence(0);
             }
           } else {
-            console.log('📝 Starting full selection highlighting');
             window.textHighlighter.highlightText(message.text);
           }
         } else if (message.action === 'end') {
-          console.log('Ending text highlighting');
           window.textHighlighter.clearTimingBasedHighlighting();
           window.textHighlighter.clearHighlights();
         }
@@ -1686,7 +1648,6 @@ if (!window.ttsMessageListenerAdded) {
 
 } // End of message listener guard
 
-console.log('TTS Content script loaded');
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {

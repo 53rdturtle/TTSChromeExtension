@@ -161,7 +161,6 @@ class GoogleTTSService {
           reasons: ['AUDIO_PLAYBACK'],
           justification: 'Play Google TTS audio in service worker context'
         });
-        console.log('📄 Recreated offscreen document');
         
         // Small delay to ensure offscreen document is ready
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -174,6 +173,19 @@ class GoogleTTSService {
 
   // Play audio using offscreen document
   async playAudio(audioContent) {
+    // Stop any existing audio first to prevent conflicts
+    try {
+      await new Promise(resolve => {
+        chrome.runtime.sendMessage({ type: 'stopGoogleTTS' }, () => {
+          // Small delay to let audio system settle
+          setTimeout(resolve, 50);
+        });
+      });
+    } catch (error) {
+      // Ignore stop errors, but still wait a bit
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
     // Ensure offscreen document exists before sending message
     await this.ensureOffscreenDocument();
     
@@ -298,12 +310,7 @@ class GoogleTTSService {
         chrome.runtime.sendMessage({ 
           type: 'quotaWarning', 
           quotaData: quotaStatus 
-        }, () => {
-          if (chrome.runtime.lastError) {
-            // Ignore quota warning message errors
-            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
-          }
-        });
+        }, () => {});
       }
       
       // Check if sentence highlighting is enabled and voice supports it
@@ -316,25 +323,19 @@ class GoogleTTSService {
       let result;
       
       if (useSentenceHighlighting) {
-        console.log('🎯 Using sentence-level SSML for enhanced highlighting with', options.voiceName);
-        
         // Create sentence-level SSML with marks
         ssmlResult = await SSMLBuilder.createSentenceSSML(text, options.lang || 'en');
-        console.log('📝 Created sentence SSML:', ssmlResult.totalSentences, 'sentences,', ssmlResult.marks.length, 'marks');
         
         // Store sentence data for highlighting
         this.currentText = text;
         this.currentSentenceData = ssmlResult;
         
-        // Use SSML synthesis for sentence highlighting (voice already verified to support marks)
+        // Use SSML synthesis for sentence highlighting
         result = await this.synthesizeSSML(ssmlResult.ssml, options);
         
       } else if (sentenceHighlightingEnabled && !voiceSupportsMarks) {
-        console.log('📢 Studio voice detected:', options.voiceName, '- Using regular synthesis with full selection highlighting');
-        
         // Create basic SSML for full selection highlighting (Studio voices)
         ssmlResult = SSMLBuilder.createBasicSSML(text);
-        console.log('📝 Using full selection highlighting for Studio voice');
         
         // Store for event handling (no sentence data for Studio voices)
         this.currentText = text;
@@ -344,11 +345,8 @@ class GoogleTTSService {
         result = await this.synthesize(text, options);
         
       } else {
-        console.log('📝 Using regular synthesis with full selection highlighting');
-        
         // Create basic SSML for full selection highlighting
         ssmlResult = SSMLBuilder.createBasicSSML(text);
-        console.log('Created basic SSML:', ssmlResult.ssml);
         
         // Store for event handling
         this.currentText = text;
@@ -397,29 +395,12 @@ class GoogleTTSService {
         throw new Error('Google TTS monthly quota exceeded. Please try again next month or upgrade your plan.');
       }
       
-      // Warn if approaching quota and send notification
-      if (quotaStatus.warning === 'critical') {
-        console.warn('⚠️ Google TTS quota at 95%. Consider upgrading your plan.');
+      // Send quota warnings if needed
+      if (quotaStatus.warning) {
         chrome.runtime.sendMessage({ 
           type: 'quotaWarning', 
           quotaData: quotaStatus 
-        }, () => {
-          if (chrome.runtime.lastError) {
-            // Ignore quota warning message errors
-            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
-          }
-        });
-      } else if (quotaStatus.warning === 'high') {
-        console.warn('⚠️ Google TTS quota at 80%. Monitor usage carefully.');
-        chrome.runtime.sendMessage({ 
-          type: 'quotaWarning', 
-          quotaData: quotaStatus 
-        }, () => {
-          if (chrome.runtime.lastError) {
-            // Ignore quota warning message errors
-            console.warn('Could not send quota warning:', chrome.runtime.lastError.message);
-          }
-        });
+        }, () => {});
       }
       
       // Synthesize speech
@@ -514,11 +495,9 @@ class GoogleTTSService {
     };
 
     try {
-      console.log('🎯 Synthesizing SSML with timing events:', request);
-      
       // Make API call with timeout - Use v1beta1 API for timing support
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for synthesis
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       const response = await fetch(`${this.betaEndpoint}?key=${apiKey}`, {
         method: 'POST',
@@ -537,22 +516,6 @@ class GoogleTTSService {
       }
 
       const data = await response.json();
-      
-      console.log('🎯 SSML synthesis result:', {
-        hasAudioContent: !!data.audioContent,
-        hasTimepoints: !!data.timepoints,
-        timepointsCount: data.timepoints ? data.timepoints.length : 0
-      });
-
-      // Log timing events if available
-      if (data.timepoints && data.timepoints.length > 0) {
-        console.log('⏰ Received timing events:', data.timepoints);
-        data.timepoints.forEach(tp => {
-          console.log(`  Mark "${tp.markName}" at ${tp.timeSeconds}s`);
-        });
-      } else {
-        console.warn('⚠️ No timing events received from v1beta1 API');
-      }
 
       return {
         audioContent: data.audioContent,
@@ -576,36 +539,23 @@ class GoogleTTSService {
       // Ensure offscreen document exists
       await this.ensureOffscreenDocument();
       
-      // Store the text and sentence data for highlighting (background script context)
-      console.log('🔧 Attempting to store text for highlighting:', this.currentText ? this.currentText.substring(0, 50) + '...' : 'null');
-      console.log('🔧 Sentence data available:', sentenceData ? `${sentenceData.totalSentences} sentences` : 'none');
-      console.log('🔧 setGoogleTTSCurrentText function available:', typeof setGoogleTTSCurrentText);
-      
+      // Store data for highlighting coordination
       if (typeof setGoogleTTSCurrentText === 'function') {
         setGoogleTTSCurrentText(this.currentText);
-      } else {
-        console.warn('❌ setGoogleTTSCurrentText function not available - storing directly');
-        // Fallback: try to access the global variable directly
-        if (typeof googleTTSCurrentText !== 'undefined') {
-          googleTTSCurrentText = this.currentText;
-          console.log('📝 Stored text directly in global variable');
-        }
+      } else if (typeof googleTTSCurrentText !== 'undefined') {
+        googleTTSCurrentText = this.currentText;
       }
       
-      // Store sentence data globally for highlighting coordination  
       if (typeof setGoogleTTSSentenceData === 'function') {
         setGoogleTTSSentenceData(sentenceData);
       } else if (typeof googleTTSSentenceData !== 'undefined') {
         googleTTSSentenceData = sentenceData;
-        console.log('📝 Stored sentence data directly in global variable');
       }
       
-      // Store timepoints globally for real-time highlighting coordination
       if (typeof setGoogleTTSTimepoints === 'function') {
         setGoogleTTSTimepoints(timepoints);
       } else if (typeof googleTTSTimepoints !== 'undefined') {
         googleTTSTimepoints = timepoints;
-        console.log('⏰ Stored', timepoints.length, 'timepoints for real-time highlighting');
       }
       
       // Send audio to offscreen document - it will trigger googleTTSStarted which will use the stored text
@@ -615,7 +565,6 @@ class GoogleTTSService {
           audioData: audioContent
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.error('Error in playAudioWithMarkEvents:', chrome.runtime.lastError);
             resolve({ status: 'error', error: chrome.runtime.lastError.message });
           } else if (response && response.status === 'playing') {
             resolve({ status: 'success', message: 'Audio playback started' });

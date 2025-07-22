@@ -248,15 +248,6 @@ class SSMLBuilder {
     const testText = "Hello world! How are you today? This is a comprehensive test of sentence highlighting.";
     const result = await SSMLBuilder.createSentenceSSML(testText);
     
-    console.log('🧪 Testing Sentence SSML:');
-    console.log('Text:', testText);
-    console.log('Sentences detected:', result.totalSentences);
-    console.log('SSML length:', result.ssml.length);
-    console.log('Marks count:', result.marks.length);
-    
-    result.sentences.forEach((sentence, idx) => {
-      console.log(`  ${idx + 1}: "${sentence}"`);
-    });
     
     return result;
   }

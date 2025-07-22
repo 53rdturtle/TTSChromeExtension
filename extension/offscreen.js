@@ -1,5 +1,4 @@
 // Offscreen Audio Player for Google TTS
-console.log('Offscreen document loaded');
 
 class OffscreenAudioPlayer {
   constructor() {
@@ -17,7 +16,6 @@ class OffscreenAudioPlayer {
               sendResponse({ status: 'playing' });
             })
             .catch((error) => {
-              console.error('Audio playback failed:', error);
               sendResponse({ status: 'error', error: error.message });
             });
           return true; // Keep the message channel open for async response
@@ -57,21 +55,32 @@ class OffscreenAudioPlayer {
       // Create new audio element
       this.currentAudio = new Audio();
       
+      // Track if audio has successfully started
+      let audioStarted = false;
+      
       // Set up event listeners
       this.currentAudio.onplay = () => {
+        audioStarted = true;
         chrome.runtime.sendMessage({ type: 'googleTTSStarted' }).catch(() => {});
       };
       
       this.currentAudio.onended = () => {
         chrome.runtime.sendMessage({ type: 'googleTTSEnded' }).catch(() => {});
+        // Clean up audio element after playback ends (without sending duplicate ended message)
+        this.cleanupAudio();
       };
       
       this.currentAudio.onerror = (event) => {
-        console.error('Audio error event:', event);
         let errorMessage = 'Audio playback error';
         if (event.target && event.target.error) {
           errorMessage = `Audio error code: ${event.target.error.code}`;
         }
+        
+        // Only send googleTTSEnded if audio had actually started
+        if (audioStarted) {
+          chrome.runtime.sendMessage({ type: 'googleTTSEnded' }).catch(() => {});
+        }
+        
         chrome.runtime.sendMessage({ 
           type: 'googleTTSError', 
           error: errorMessage
@@ -88,19 +97,37 @@ class OffscreenAudioPlayer {
       
       // Wait for the audio to be ready before playing
       await new Promise((resolve, reject) => {
-        this.currentAudio.oncanplaythrough = resolve;
-        this.currentAudio.onerror = reject;
+        const originalOnError = this.currentAudio.onerror;
+        
+        // Temporarily add load handlers without overwriting existing handlers
+        const loadResolve = () => {
+          this.currentAudio.removeEventListener('canplaythrough', loadResolve);
+          this.currentAudio.removeEventListener('error', loadReject);
+          resolve();
+        };
+        
+        const loadReject = (event) => {
+          this.currentAudio.removeEventListener('canplaythrough', loadResolve);
+          this.currentAudio.removeEventListener('error', loadReject);
+          reject(event);
+        };
+        
+        this.currentAudio.addEventListener('canplaythrough', loadResolve);
+        this.currentAudio.addEventListener('error', loadReject);
         this.currentAudio.load();
         
         // Timeout after 5 seconds
-        setTimeout(() => reject(new Error('Audio load timeout')), 5000);
+        setTimeout(() => {
+          this.currentAudio.removeEventListener('canplaythrough', loadResolve);
+          this.currentAudio.removeEventListener('error', loadReject);
+          reject(new Error('Audio load timeout'));
+        }, 5000);
       });
       
       // Play audio
       await this.currentAudio.play();
       
     } catch (error) {
-      console.error('Error in playAudio:', error);
       chrome.runtime.sendMessage({ 
         type: 'googleTTSError', 
         error: error.message || 'Audio playback failed'
@@ -109,13 +136,30 @@ class OffscreenAudioPlayer {
     }
   }
 
-  stopAudio() {
+  cleanupAudio() {
     if (this.currentAudio) {
+      // Complete cleanup to prevent audio conflicts
       this.currentAudio.pause();
       this.currentAudio.currentTime = 0;
-      this.currentAudio.src = '';
-      this.currentAudio = null;
       
+      // Remove all event listeners to prevent memory leaks
+      this.currentAudio.onplay = null;
+      this.currentAudio.onended = null;
+      this.currentAudio.onerror = null;
+      this.currentAudio.onpause = null;
+      this.currentAudio.oncanplaythrough = null;
+      
+      // Clear source and remove audio element
+      this.currentAudio.src = '';
+      this.currentAudio.removeAttribute('src');
+      this.currentAudio.load(); // Force browser to release resources
+      this.currentAudio = null;
+    }
+  }
+
+  stopAudio() {
+    if (this.currentAudio) {
+      this.cleanupAudio();
       // Send googleTTSEnded event to ensure highlighting is cleared when manually stopped
       chrome.runtime.sendMessage({ type: 'googleTTSEnded' }).catch(() => {});
     }
@@ -130,7 +174,6 @@ class OffscreenAudioPlayer {
   resumeAudio() {
     if (this.currentAudio && this.currentAudio.paused) {
       this.currentAudio.play().catch((error) => {
-        console.error('Error resuming audio:', error);
         chrome.runtime.sendMessage({ 
           type: 'googleTTSError', 
           error: 'Failed to resume audio' 

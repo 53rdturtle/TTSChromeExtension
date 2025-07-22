@@ -8,15 +8,10 @@ importScripts('services/google-tts.js');
 // Verify SSML Builder was loaded successfully
 if (typeof SSMLBuilder === 'undefined') {
   console.error('❌ SSML Builder failed to load in service worker context');
-} else {
-  console.log('✅ SSML Builder loaded successfully in service worker');
 }
 
-// Verify SimpleSentenceDetector was loaded successfully  
 if (typeof SimpleSentenceDetector === 'undefined') {
   console.error('❌ SimpleSentenceDetector failed to load in service worker context');
-} else {
-  console.log('✅ SimpleSentenceDetector loaded successfully in service worker');
 }
 
 // Default highlighting settings - Enhanced per-mode configuration
@@ -396,25 +391,18 @@ class MessageHandler {
       }
       
     } catch (error) {
-      console.error('❌ TTS service speak error:', error);
-      console.error('Error details:', error.message, error.stack);
-      
       // If we were trying to use Google TTS but failed, try fallback to Chrome TTS
       const isGoogleTTSVoice = await this.isGoogleTTSVoice(message.voiceName);
       const googleTTSEnabled = await googleTTSService.isEnabled();
       
       if (isGoogleTTSVoice && googleTTSEnabled) {
-        console.log('⚠️ Google TTS failed, falling back to Chrome TTS');
-        console.log('Original error:', error.message);
         try {
           const result = await this.ttsService.speak(message.text, options);
           sendResponse(result);
         } catch (fallbackError) {
-          console.error('❌ Chrome TTS fallback also failed:', fallbackError);
           sendResponse({ status: 'error', error: fallbackError.message || fallbackError });
         }
       } else {
-        console.log('❌ Chrome TTS error (not a Google TTS fallback scenario)');
         sendResponse({ status: 'error', error: error.message || error });
       }
     }
@@ -729,6 +717,25 @@ globalThis.googleTTSSentenceData = googleTTSSentenceData;
 globalThis.googleTTSTimepoints = googleTTSTimepoints;
 
 
+// Retry function for highlighting message delivery
+async function sendHighlightingMessageWithRetry(tabId, message, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, message);
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries) {
+        console.error('Failed to send highlighting message after', maxRetries, 'attempts');
+        return;
+      }
+      
+      // Wait before retrying, with exponential backoff
+      const delay = attempt * 50; // 50ms, 100ms, 150ms
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // Set up message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle control bar position updates
@@ -760,23 +767,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (googleTTSSentenceData) {
             highlightMessage.sentenceData = googleTTSSentenceData;
             highlightMessage.mode = 'sentence';
-            console.log('🎯 Enabling sentence highlighting mode with', googleTTSSentenceData.totalSentences, 'sentences');
             
             // Add timing events if available
             if (googleTTSTimepoints && googleTTSTimepoints.length > 0) {
               highlightMessage.timepoints = googleTTSTimepoints;
-              console.log('⏰ Including', googleTTSTimepoints.length, 'timing events for real-time highlighting');
             }
           } else {
             highlightMessage.mode = 'fullSelection';
           }
           
-          chrome.tabs.sendMessage(tabs[0].id, highlightMessage).then((response) => {
-            console.log('✅ Highlighting message sent successfully:', response);
-          }).catch((error) => {
-            console.error('❌ Failed to send highlighting message:', error);
-            console.log('💡 Content script might not be loaded or tab might not support highlighting');
-          });
+          // Send highlighting message with retry for race condition handling
+          sendHighlightingMessageWithRetry(tabs[0].id, highlightMessage, 3);
         }
       });
     }
@@ -825,7 +826,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.type === 'googleTTSError') {
-    console.error('❌ Google TTS error:', message.error);
+    console.error('Google TTS error:', message.error);
     globalTTSState.isSpeaking = false;
     globalTTSState.isPaused = false;
     globalTTSState.showControlBar = false;
@@ -862,23 +863,14 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
   if (command === "open_popup") {
     // Check if TTS is currently speaking
     if (globalTTSState.isSpeaking || globalTTSState.isPaused) {
-      console.log('⌨️ Keyboard shortcut: Stopping current TTS');
       // Stop the current TTS
-      await messageHandler.handleStop((response) => {
-        console.log('⌨️ TTS stopped via keyboard shortcut:', response);
-      });
+      await messageHandler.handleStop((response) => {});
     } else {
-      console.log('⌨️ Keyboard shortcut: Starting TTS with selected text');
       // Start speaking selected text
       const selectedText = await getSelectedTextFromActiveTab();
       if (selectedText) {
         // Get last used voice and rate from storage (same keys as popup)
         chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
-          console.log('⌨️ Keyboard shortcut using settings:', { 
-            voice: prefs.savedVoice, 
-            rate: prefs.savedRate 
-          });
-          
           const message = {
             type: 'speak',
             text: selectedText,
@@ -887,14 +879,8 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
           };
           
           // Use the integrated handleSpeak method that includes Google TTS
-          await messageHandler.handleSpeak(message, (response) => {
-            if (response && response.status === 'error') {
-              console.error('TTS Error from keyboard shortcut:', response.error);
-            }
-          });
+          await messageHandler.handleSpeak(message, (response) => {});
         });
-      } else {
-        console.log('⌨️ Keyboard shortcut: No text selected to speak');
       }
     }
   }
