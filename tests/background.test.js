@@ -431,7 +431,8 @@ describe('MessageHandler', () => {
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'highlightText',
         text: testText,
-        action: 'start'
+        action: 'start',
+        paragraphBoundaries: []
       });
     });
 

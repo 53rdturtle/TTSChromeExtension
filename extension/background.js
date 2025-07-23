@@ -96,7 +96,8 @@ async function broadcastControlBarState() {
 }
 
 // Shared utility to get selected text from active tab
-async function getSelectedTextFromActiveTab() {
+// Extract selected text with paragraph boundary awareness
+async function getSelectedTextWithStructure() {
   return new Promise((resolve) => {
     // Query for tabs in the current window, excluding popup windows
     chrome.tabs.query({ 
@@ -107,10 +108,73 @@ async function getSelectedTextFromActiveTab() {
       if (tabs && tabs[0]) {
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
-          func: () => window.getSelection().toString()
+          func: () => {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return null;
+            
+            const range = selection.getRangeAt(0);
+            const walker = document.createTreeWalker(
+              range.commonAncestorContainer,
+              NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+              {
+                acceptNode: function(node) {
+                  if (node.nodeType === Node.TEXT_NODE) {
+                    return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                  } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    // Check if this is a block-level element that should create paragraph boundaries
+                    const blockElements = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'SECTION', 'ARTICLE'];
+                    return blockElements.includes(node.tagName) && range.intersectsNode(node) ? 
+                      NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                  }
+                  return NodeFilter.FILTER_SKIP;
+                }
+              }
+            );
+
+            let text = '';
+            const paragraphBoundaries = [];
+            let currentNode;
+            let lastBlockElement = null;
+
+            while (currentNode = walker.nextNode()) {
+              if (currentNode.nodeType === Node.TEXT_NODE) {
+                // Add the text content
+                let nodeText = currentNode.textContent;
+                
+                // If this text node is at the start or end of the selection, we might need to trim it
+                if (currentNode === range.startContainer) {
+                  nodeText = nodeText.substring(range.startOffset);
+                }
+                if (currentNode === range.endContainer) {
+                  nodeText = nodeText.substring(0, range.endOffset - (currentNode === range.startContainer ? range.startOffset : 0));
+                }
+                
+                text += nodeText;
+              } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+                // This is a block element - mark paragraph boundary
+                const blockElements = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'SECTION', 'ARTICLE'];
+                if (blockElements.includes(currentNode.tagName) && currentNode !== lastBlockElement) {
+                  // Only add boundary if we have some text and this is a new block element
+                  if (text.length > 0 && lastBlockElement !== null) {
+                    paragraphBoundaries.push(text.length);
+                  }
+                  lastBlockElement = currentNode;
+                }
+              }
+            }
+            
+            console.log('🔍 Paragraph boundary extraction result:', {
+              textLength: text.length,
+              textPreview: text.trim().substring(0, 100) + '...',
+              paragraphBoundaries: paragraphBoundaries,
+              boundaryCount: paragraphBoundaries.length
+            });
+            
+            return text && text.trim() !== "" ? { text: text.trim(), paragraphBoundaries } : null;
+          }
         }, (results) => {
-          const selectedText = results && results[0] && results[0].result;
-          resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
+          const result = results && results[0] && results[0].result;
+          resolve(result);
         });
       } else {
         // Alternative: get the last active tab
@@ -122,10 +186,73 @@ async function getSelectedTextFromActiveTab() {
             const tab = allTabs[0];
             chrome.scripting.executeScript({
               target: { tabId: tab.id },
-              func: () => window.getSelection().toString()
+              func: () => {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return null;
+                
+                const range = selection.getRangeAt(0);
+                const walker = document.createTreeWalker(
+                  range.commonAncestorContainer,
+                  NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+                  {
+                    acceptNode: function(node) {
+                      if (node.nodeType === Node.TEXT_NODE) {
+                        return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                      } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if this is a block-level element that should create paragraph boundaries
+                        const blockElements = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'SECTION', 'ARTICLE'];
+                        return blockElements.includes(node.tagName) && range.intersectsNode(node) ? 
+                          NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                      }
+                      return NodeFilter.FILTER_SKIP;
+                    }
+                  }
+                );
+
+                let text = '';
+                const paragraphBoundaries = [];
+                let currentNode;
+                let lastBlockElement = null;
+
+                while (currentNode = walker.nextNode()) {
+                  if (currentNode.nodeType === Node.TEXT_NODE) {
+                    // Add the text content
+                    let nodeText = currentNode.textContent;
+                    
+                    // If this text node is at the start or end of the selection, we might need to trim it
+                    if (currentNode === range.startContainer) {
+                      nodeText = nodeText.substring(range.startOffset);
+                    }
+                    if (currentNode === range.endContainer) {
+                      nodeText = nodeText.substring(0, range.endOffset - (currentNode === range.startContainer ? range.startOffset : 0));
+                    }
+                    
+                    text += nodeText;
+                  } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+                    // This is a block element - mark paragraph boundary
+                    const blockElements = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'SECTION', 'ARTICLE'];
+                    if (blockElements.includes(currentNode.tagName) && currentNode !== lastBlockElement) {
+                      // Only add boundary if we have some text and this is a new block element
+                      if (text.length > 0 && lastBlockElement !== null) {
+                        paragraphBoundaries.push(text.length);
+                      }
+                      lastBlockElement = currentNode;
+                    }
+                  }
+                }
+                
+                console.log('🔍 Paragraph boundary extraction result (fallback):', {
+                  textLength: text.length,
+                  textPreview: text.trim().substring(0, 100) + '...',
+                  paragraphBoundaries: paragraphBoundaries,
+                  boundaryCount: paragraphBoundaries.length
+                });
+                
+                return text && text.trim() !== "" ? { text: text.trim(), paragraphBoundaries } : null;
+              }
             }, (results) => {
-              const selectedText = results && results[0] && results[0].result;
-              resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
+              const result = results && results[0] && results[0].result;
+              resolve(result);
             });
           } else {
             resolve(null);
@@ -134,6 +261,76 @@ async function getSelectedTextFromActiveTab() {
       }
     });
   });
+}
+
+async function getSelectedTextFromActiveTab() {
+  const result = await getSelectedTextWithStructure();
+  return result ? result.text : null;
+}
+
+// Split sentences at paragraph boundaries for better highlighting
+function splitSentencesAtParagraphBoundaries(sentences, text, paragraphBoundaries) {
+  if (!paragraphBoundaries || !paragraphBoundaries.length) {
+    return sentences;
+  }
+
+  console.log('🔄 Processing sentences with paragraph boundaries:', paragraphBoundaries);
+  
+  const result = [];
+  
+  sentences.forEach((sentence, sentenceIndex) => {
+    // Find the position of this sentence in the original text
+    const sentenceStart = text.indexOf(sentence);
+    const sentenceEnd = sentenceStart + sentence.length;
+    
+    console.log(`📝 Sentence ${sentenceIndex}: "${sentence.substring(0, 30)}..." at position ${sentenceStart}-${sentenceEnd}`);
+    
+    // CRITICAL FIX: Only split sentences that were actually found in the text
+    if (sentenceStart === -1) {
+      console.log(`⚠️ Sentence ${sentenceIndex} not found in text - keeping intact`);
+      result.push(sentence);
+      return;
+    }
+    
+    // Find paragraph boundaries that fall within this sentence
+    const boundariesInSentence = paragraphBoundaries.filter(boundary => 
+      boundary > sentenceStart && boundary < sentenceEnd
+    );
+    
+    if (boundariesInSentence.length === 0) {
+      // No paragraph boundaries in this sentence, keep it as is
+      result.push(sentence);
+      console.log(`✅ Keeping sentence ${sentenceIndex} intact (no paragraph boundaries)`);
+    } else {
+      // Split the sentence at paragraph boundaries
+      console.log(`✂️ Splitting sentence ${sentenceIndex} at boundaries:`, boundariesInSentence);
+      
+      let currentPos = 0;
+      const sentenceText = sentence;
+      
+      boundariesInSentence.forEach((boundary, boundaryIndex) => {
+        const relativePos = boundary - sentenceStart;
+        if (relativePos > currentPos && relativePos < sentenceText.length) {
+          const part = sentenceText.substring(currentPos, relativePos).trim();
+          if (part) {
+            result.push(part);
+            console.log(`  📄 Added part ${boundaryIndex + 1}: "${part.substring(0, 30)}..."`);
+          }
+          currentPos = relativePos;
+        }
+      });
+      
+      // Add the remaining part after the last boundary
+      const remaining = sentenceText.substring(currentPos).trim();
+      if (remaining) {
+        result.push(remaining);
+        console.log(`  📄 Added final part: "${remaining.substring(0, 30)}..."`);
+      }
+    }
+  });
+  
+  console.log(`✂️ Split ${sentences.length} sentences into ${result.length} paragraph-aware sentences`);
+  return result;
 }
 
 // TTS Service class to handle all text-to-speech operations
@@ -171,10 +368,12 @@ class TTSService {
               if (tabs[0]) {
                 // Store the originating tab ID
                 globalTTSState.originatingTabId = tabs[0].id;
+                console.log('📤 Sending highlight message with boundaries:', globalThis.currentParagraphBoundaries || []);
                 chrome.tabs.sendMessage(tabs[0].id, {
                   type: 'highlightText',
                   text: text,
-                  action: 'start'
+                  action: 'start',
+                  paragraphBoundaries: globalThis.currentParagraphBoundaries || []
                 });
               }
             });
@@ -344,6 +543,11 @@ class MessageHandler {
         await this.handlePreviewVoice(message, sendResponse);
       } else if (message.type === 'testGoogleTTSEnabled') {
         await this.handleTestGoogleTTSEnabled(sendResponse);
+      } else if (message.type === 'getParagraphBoundaries') {
+        sendResponse({ 
+          status: 'success', 
+          paragraphBoundaries: globalThis.currentParagraphBoundaries || [] 
+        });
       } else {
         console.log('Unknown message type:', message.type);
         sendResponse({ status: 'error', error: 'Unknown message type' });
@@ -367,6 +571,33 @@ class MessageHandler {
     };
 
     try {
+      // Use paragraph boundaries from message if provided, otherwise extract them
+      let paragraphBoundaries = message.paragraphBoundaries || [];
+      
+      if (!paragraphBoundaries.length) {
+        // Get text with paragraph structure for enhanced sentence highlighting
+        const textWithStructure = await getSelectedTextWithStructure();
+        paragraphBoundaries = textWithStructure ? textWithStructure.paragraphBoundaries : [];
+        
+        console.log('📄 Text structure analysis (fallback extraction):', {
+          hasStructure: !!textWithStructure,
+          textFromStructure: textWithStructure ? textWithStructure.text.substring(0, 100) + '...' : 'null',
+          paragraphBoundaries: paragraphBoundaries,
+          textLength: message.text.length,
+          messageText: message.text.substring(0, 100) + '...'
+        });
+      } else {
+        console.log('📄 Using paragraph boundaries from message:', {
+          paragraphBoundaries: paragraphBoundaries,
+          textLength: message.text.length,
+          messageText: message.text.substring(0, 100) + '...'
+        });
+      }
+
+      // Store paragraph boundaries globally for both TTS paths
+      globalThis.currentParagraphBoundaries = paragraphBoundaries;
+      console.log('💾 Stored paragraph boundaries globally:', paragraphBoundaries);
+
       // Determine if this is a Google TTS voice or Chrome TTS voice
       const isGoogleTTSVoice = await this.isGoogleTTSVoice(message.voiceName);
       const googleTTSEnabled = await googleTTSService.isEnabled();
@@ -380,12 +611,12 @@ class MessageHandler {
       
       if (isGoogleTTSVoice && googleTTSEnabled) {
         console.log('🎵 Using Google TTS API with SSML highlighting');
-        // Use SSML highlighting for Google TTS voices
-        const result = await googleTTSService.speakWithHighlighting(message.text, options);
+        // Use SSML highlighting for Google TTS voices with paragraph awareness
+        const result = await googleTTSService.speakWithHighlighting(message.text, options, paragraphBoundaries);
         sendResponse(result);
         
       } else {
-        console.log('🎤 Using Chrome TTS API');
+        console.log('🎤 Using Chrome TTS API with paragraph-aware highlighting');
         const result = await this.ttsService.speak(message.text, options);
         sendResponse(result);
       }
@@ -445,8 +676,20 @@ class MessageHandler {
       globalTTSState.showControlBar = false;
       globalTTSState.originatingTabId = null;
       
-      // Note: Highlighting will be cleared automatically when googleTTSService.stopAudio()
-      // triggers the googleTTSEnded event from the offscreen document
+      // Explicitly clear highlighting on all tabs immediately
+      // This ensures highlights are cleared even if TTS events don't fire properly
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file:'))) {
+            chrome.tabs.sendMessage(tab.id, {
+              type: 'highlightText',
+              action: 'end'
+            }).catch(() => {
+              // Ignore errors for tabs without content scripts
+            });
+          }
+        });
+      });
       
       broadcastControlBarState();
       
@@ -866,21 +1109,39 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
       // Stop the current TTS
       await messageHandler.handleStop((response) => {});
     } else {
-      // Start speaking selected text
-      const selectedText = await getSelectedTextFromActiveTab();
-      if (selectedText) {
+      // Start speaking selected text with structure information
+      console.log('🎯 Ctrl+Q: Starting text extraction');
+      const textWithStructure = await getSelectedTextWithStructure();
+      console.log('🎯 Ctrl+Q: Text structure extracted:', {
+        hasText: !!textWithStructure,
+        textLength: textWithStructure?.text?.length || 0,
+        boundaryCount: textWithStructure?.paragraphBoundaries?.length || 0
+      });
+      
+      if (textWithStructure) {
         // Get last used voice and rate from storage (same keys as popup)
         chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
           const message = {
             type: 'speak',
-            text: selectedText,
+            text: textWithStructure.text,
             rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
-            voiceName: prefs.savedVoice
+            voiceName: prefs.savedVoice,
+            paragraphBoundaries: textWithStructure.paragraphBoundaries // Include structure info
           };
           
+          console.log('🎯 Ctrl+Q: Calling handleSpeak with message:', {
+            textLength: message.text.length,
+            boundaryCount: message.paragraphBoundaries?.length || 0,
+            voiceName: message.voiceName
+          });
+          
           // Use the integrated handleSpeak method that includes Google TTS
-          await messageHandler.handleSpeak(message, (response) => {});
+          await messageHandler.handleSpeak(message, (response) => {
+            console.log('🎯 Ctrl+Q: handleSpeak response:', response);
+          });
         });
+      } else {
+        console.log('🎯 Ctrl+Q: No text structure extracted');
       }
     }
   }

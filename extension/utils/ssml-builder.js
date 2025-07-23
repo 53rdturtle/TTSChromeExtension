@@ -46,8 +46,8 @@ class SSMLBuilder {
     };
   }
 
-  // Create SSML with sentence-level marks for progressive highlighting
-  async createSentenceSSML(text, language = 'en') {
+  // Create SSML with sentence-level marks for progressive highlighting (with paragraph boundaries)
+  async createSentenceSSML(text, language = 'en', paragraphBoundaries = []) {
     await this.initializeSentenceDetector();
     
     // Get sentence metadata
@@ -55,8 +55,25 @@ class SSMLBuilder {
       ? this.sentenceDetector.getSentenceMetadata(text, language)
       : await this.getSentenceDataFallback(text, language);
 
-    const sentences = sentenceData.sentences || sentenceData.metadata?.map(m => m.text) || [];
-    const metadata = sentenceData.metadata || [];
+    let sentences = sentenceData.sentences || sentenceData.metadata?.map(m => m.text) || [];
+    let metadata = sentenceData.metadata || [];
+    
+    // Apply paragraph-aware sentence splitting if boundaries are provided
+    if (paragraphBoundaries && paragraphBoundaries.length > 0) {
+      console.log('📄 Applying paragraph boundaries to SSML sentences:', paragraphBoundaries);
+      const splitSentences = this.splitSentencesAtParagraphBoundaries(sentences, text, paragraphBoundaries);
+      
+      // Update sentences and metadata accordingly
+      sentences = splitSentences;
+      metadata = splitSentences.map((sentence, index) => ({
+        id: index,
+        text: sentence,
+        startPosition: text.indexOf(sentence),
+        endPosition: text.indexOf(sentence) + sentence.length
+      }));
+      
+      console.log(`✂️ SSML sentences split from ${sentenceData.sentences.length} to ${sentences.length}`);
+    }
 
     if (sentences.length === 0) {
       // Fallback to basic SSML if no sentences detected
@@ -130,6 +147,71 @@ class SSMLBuilder {
       totalSentences: sentences.length,
       method: 'basic_fallback'
     };
+  }
+
+  // Split sentences at paragraph boundaries for better highlighting
+  splitSentencesAtParagraphBoundaries(sentences, text, paragraphBoundaries) {
+    if (!paragraphBoundaries || !paragraphBoundaries.length) {
+      return sentences;
+    }
+
+    console.log('🔄 SSML Builder processing sentences with paragraph boundaries:', paragraphBoundaries);
+    
+    const result = [];
+    
+    sentences.forEach((sentence, sentenceIndex) => {
+      // Find the position of this sentence in the original text
+      const sentenceStart = text.indexOf(sentence);
+      const sentenceEnd = sentenceStart + sentence.length;
+      
+      console.log(`📝 SSML Sentence ${sentenceIndex}: "${sentence.substring(0, 30)}..." at position ${sentenceStart}-${sentenceEnd}`);
+      
+      // CRITICAL FIX: Only split sentences that were actually found in the text
+      if (sentenceStart === -1) {
+        console.log(`⚠️ SSML sentence ${sentenceIndex} not found in text - keeping intact`);
+        result.push(sentence);
+        return;
+      }
+      
+      // Find paragraph boundaries that fall within this sentence
+      const boundariesInSentence = paragraphBoundaries.filter(boundary => 
+        boundary > sentenceStart && boundary < sentenceEnd
+      );
+      
+      if (boundariesInSentence.length === 0) {
+        // No paragraph boundaries in this sentence, keep it as is
+        result.push(sentence);
+        console.log(`✅ SSML keeping sentence ${sentenceIndex} intact (no paragraph boundaries)`);
+      } else {
+        // Split the sentence at paragraph boundaries
+        console.log(`✂️ SSML splitting sentence ${sentenceIndex} at boundaries:`, boundariesInSentence);
+        
+        let currentPos = 0;
+        const sentenceText = sentence;
+        
+        boundariesInSentence.forEach((boundary, boundaryIndex) => {
+          const relativePos = boundary - sentenceStart;
+          if (relativePos > currentPos && relativePos < sentenceText.length) {
+            const part = sentenceText.substring(currentPos, relativePos).trim();
+            if (part) {
+              result.push(part);
+              console.log(`  📄 SSML added part ${boundaryIndex + 1}: "${part.substring(0, 30)}..."`);
+            }
+            currentPos = relativePos;
+          }
+        });
+        
+        // Add the remaining part after the last boundary
+        const remaining = sentenceText.substring(currentPos).trim();
+        if (remaining) {
+          result.push(remaining);
+          console.log(`  📄 SSML added final part: "${remaining.substring(0, 30)}..."`);
+        }
+      }
+    });
+    
+    console.log(`✂️ SSML split ${sentences.length} sentences into ${result.length} paragraph-aware sentences`);
+    return result;
   }
 
   // Fallback sentence data when advanced detector isn't available
