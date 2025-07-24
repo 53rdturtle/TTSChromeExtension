@@ -292,7 +292,7 @@ class GoogleTTSService {
   }
 
   // Speak with SSML highlighting support
-  async speakWithHighlighting(text, options = {}, paragraphBoundaries = []) {
+  async speakWithHighlighting(text, options = {}) {
     try {
       // SSML builder should be pre-loaded in background.js
       if (typeof SSMLBuilder === 'undefined') {
@@ -323,8 +323,8 @@ class GoogleTTSService {
       let result;
       
       if (useSentenceHighlighting) {
-        // Create sentence-level SSML with marks and paragraph boundaries
-        ssmlResult = await SSMLBuilder.createSentenceSSML(text, options.lang || 'en', paragraphBoundaries);
+        // Create sentence-level SSML with marks
+        ssmlResult = await SSMLBuilder.createSentenceSSML(text, options.lang || 'en');
         
         // Store sentence data for highlighting
         this.currentText = text;

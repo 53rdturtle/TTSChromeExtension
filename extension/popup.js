@@ -302,7 +302,6 @@ class TTSController {
 
     console.log('📤 Sending speak message to background script');
 
-    // Note: Popup uses the selected text as-is, paragraph boundaries will be extracted in background
     chrome.runtime.sendMessage({
       type: 'speak',
       text: text,

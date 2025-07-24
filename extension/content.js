@@ -1,11 +1,6 @@
 // Content script for TTS Chrome Extension
 // Handles floating control bar display and text highlighting
 
-// Prevent multiple declarations if script is injected multiple times
-if (typeof window.TextHighlighter !== 'undefined') {
-  console.warn('TextHighlighter already exists, skipping redeclaration');
-} else {
-
 // TextHighlighter class to handle text highlighting during TTS
 class TextHighlighter {
   constructor() {
@@ -19,7 +14,6 @@ class TextHighlighter {
     this.sentenceTimer = null;
     this.speechStartTime = null;
     this.timepoints = null;
-    this.activeTimeouts = []; // Track all timing-based timeouts
     
     // Layered highlighting support for different modes
     this.highlightLayers = {
@@ -28,11 +22,6 @@ class TextHighlighter {
       word: []
     };
     this.currentMode = 'fullSelection';
-    
-    // CSS Custom Highlight API support (check for browser environment)
-    this.useCustomHighlightAPI = typeof CSS !== 'undefined' && 'highlights' in CSS;
-    this.sentenceRanges = [];
-    this.currentHighlight = null;
   }
 
   // Highlight the selected text
@@ -45,16 +34,7 @@ class TextHighlighter {
     
     this.originalSelection = selection.getRangeAt(0).cloneRange();
     
-    // Try modern CSS Custom Highlight API first
-    if (this.useCustomHighlightAPI) {
-      if (this.highlightFullSelectionModern()) {
-        // Clear the selection to avoid blue highlight conflicting with yellow highlight
-        selection.removeAllRanges();
-        return;
-      }
-    }
-    
-    // Fallback to legacy DOM highlighting
+    // Create highlight spans for the selected text
     const range = selection.getRangeAt(0);
     this.highlightRange(range);
     
@@ -224,9 +204,6 @@ class TextHighlighter {
     
     // Clear sentence highlighting data
     this.clearSentenceHighlights();
-    
-    // Clear modern CSS Custom Highlight API highlights
-    this.clearModernHighlights();
   }
 
   // Initialize sentence highlighting mode
@@ -320,337 +297,22 @@ class TextHighlighter {
     }
   }
 
-  // CSS Custom Highlight API-based sentence highlighting
-  initializeModernSentenceHighlighting(text, sentenceData, timepoints = null, paragraphBoundaries = null) {
-    if (!this.useCustomHighlightAPI) {
-      // Fallback to legacy highlighting for unsupported browsers
-      return this.initializeSentenceHighlighting(text, sentenceData, timepoints);
-    }
-
-    this.currentMode = 'sentence';
-    this.sentenceData = sentenceData;
-    this.currentSentenceIndex = -1;
-    this.timepoints = timepoints;
-    this.sentenceRanges = [];
-
-    // Store the original selection
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-      this.originalSelection = selection.getRangeAt(0).cloneRange();
-    }
-
-    // Clear the selection to avoid conflicts
-    selection.removeAllRanges();
-
-    // Apply paragraph-aware sentence splitting if boundaries provided
-    console.log('🔍 Checking paragraph boundaries:', paragraphBoundaries);
-    if (paragraphBoundaries && paragraphBoundaries.length > 0) {
-      console.log('✂️ Applying paragraph-aware sentence processing');
-      this.applyParagraphAwareSentenceProcessing(paragraphBoundaries);
-    } else {
-      console.log('⚠️ No paragraph boundaries provided - skipping paragraph-aware processing');
-    }
-
-    // Create ranges for all sentences using modern API
-    this.createSentenceRanges();
-  }
-
-  // Apply paragraph-aware sentence processing using provided boundaries
-  applyParagraphAwareSentenceProcessing(paragraphBoundaries) {
-    if (!paragraphBoundaries || !paragraphBoundaries.length) {
-      return;
-    }
-
-    console.log('📄 Content script processing with paragraph boundaries:', paragraphBoundaries);
-    
-    if (this.sentenceData && this.sentenceData.sentences) {
-      const originalText = this.getNormalizedSelectionText();
-      const splitSentences = this.splitSentencesAtParagraphBoundaries(
-        this.sentenceData.sentences, 
-        originalText, 
-        paragraphBoundaries
-      );
-      
-      // Update sentence data with paragraph-aware sentences
-      this.sentenceData = {
-        ...this.sentenceData,
-        sentences: splitSentences,
-        totalSentences: splitSentences.length
-      };
-      
-      console.log(`✂️ Content script updated sentences from ${this.sentenceData.sentences.length} to ${splitSentences.length}`);
-    }
-  }
-
-  // Split sentences at paragraph boundaries for better highlighting (content script version)
-  splitSentencesAtParagraphBoundaries(sentences, text, paragraphBoundaries) {
-    if (!paragraphBoundaries || !paragraphBoundaries.length) {
-      return sentences;
-    }
-
-    console.log('🔄 Content script processing sentences with paragraph boundaries:', paragraphBoundaries);
-    
-    const result = [];
-    
-    sentences.forEach((sentence, sentenceIndex) => {
-      // Find the position of this sentence in the original text
-      const sentenceStart = text.indexOf(sentence);
-      const sentenceEnd = sentenceStart + sentence.length;
-      
-      console.log(`📝 Content Sentence ${sentenceIndex}: "${sentence.substring(0, 30)}..." at position ${sentenceStart}-${sentenceEnd}`);
-      
-      // CRITICAL FIX: Only split sentences that were actually found in the text
-      if (sentenceStart === -1) {
-        console.log(`⚠️ Content sentence ${sentenceIndex} not found in text - keeping intact (will use fuzzy matching for highlighting)`);
-        result.push(sentence);
-        return;
-      }
-      
-      // Find paragraph boundaries that fall within this sentence
-      const boundariesInSentence = paragraphBoundaries.filter(boundary => 
-        boundary > sentenceStart && boundary < sentenceEnd
-      );
-      
-      if (boundariesInSentence.length === 0) {
-        // No paragraph boundaries in this sentence, keep it as is
-        result.push(sentence);
-        console.log(`✅ Content keeping sentence ${sentenceIndex} intact (no paragraph boundaries)`);
-      } else {
-        // Split the sentence at paragraph boundaries
-        console.log(`✂️ Content splitting sentence ${sentenceIndex} at boundaries:`, boundariesInSentence);
-        
-        let currentPos = 0;
-        const sentenceText = sentence;
-        
-        boundariesInSentence.forEach((boundary, boundaryIndex) => {
-          const relativePos = boundary - sentenceStart;
-          if (relativePos > currentPos && relativePos < sentenceText.length) {
-            const part = sentenceText.substring(currentPos, relativePos).trim();
-            if (part) {
-              result.push(part);
-              console.log(`  📄 Content added part ${boundaryIndex + 1}: "${part.substring(0, 30)}..."`);
-            }
-            currentPos = relativePos;
-          }
-        });
-        
-        // Add the remaining part after the last boundary
-        const remaining = sentenceText.substring(currentPos).trim();
-        if (remaining) {
-          result.push(remaining);
-          console.log(`  📄 Content added final part: "${remaining.substring(0, 30)}..."`);
-        }
-      }
-    });
-    
-    console.log(`✂️ Content split ${sentences.length} sentences into ${result.length} paragraph-aware sentences`);
-    return result;
-  }
-
-  // Create precise DOM ranges for each sentence
-  createSentenceRanges() {
-    if (!this.originalSelection || !this.sentenceData) return;
-
-    // Get the normalized text that matches what the sentence detector used
-    const originalText = this.getNormalizedSelectionText();
-    this.sentenceRanges = [];
-    
-    console.log('🔍 Creating sentence ranges for:', this.sentenceData.sentences.length, 'sentences');
-    console.log('📝 Original text length:', originalText.length);
-    console.log('📄 Original text preview:', JSON.stringify(originalText.substring(0, 200)));
-    console.log('📋 Sentences from parser:');
-    this.sentenceData.sentences.forEach((sentence, i) => {
-      console.log(`  ${i}: "${sentence.substring(0, 80)}..."`);
-    });
-    
-    let searchFromPos = 0;
-    this.sentenceData.sentences.forEach((sentence, index) => {
-      let sentenceStart = originalText.indexOf(sentence, searchFromPos);
-      let sentenceLength = sentence.length;
-      
-      // If exact match fails, try fuzzy matching for partial sentences
-      if (sentenceStart < 0) {
-        const fuzzyMatch = this.findFuzzySentenceMatch(originalText, sentence, searchFromPos);
-        if (fuzzyMatch) {
-          sentenceStart = fuzzyMatch.start;
-          sentenceLength = fuzzyMatch.length;
-          console.log(`🔍 Found fuzzy match for sentence ${index} at position ${sentenceStart}-${sentenceStart + sentenceLength}`);
-        }
-      }
-      
-      if (sentenceStart >= 0) {
-        const sentenceEnd = sentenceStart + sentenceLength;
-        
-        console.log(`📍 Sentence ${index}: "${sentence.substring(0, 50)}..." at position ${sentenceStart}-${sentenceEnd}`);
-        
-        // Create a range for this sentence
-        const sentenceRange = this.createRangeFromTextPosition(
-          this.originalSelection, 
-          sentenceStart, 
-          sentenceLength
-        );
-        
-        if (sentenceRange) {
-          this.sentenceRanges[index] = sentenceRange;
-          console.log(`✅ Successfully created range for sentence ${index}`);
-        } else {
-          console.warn(`❌ Failed to create range for sentence ${index}`);
-        }
-        
-        searchFromPos = sentenceEnd;
-      } else {
-        console.warn(`❌ Could not find sentence ${index} in original text:`, sentence.substring(0, 50));
-      }
-    });
-    
-    console.log('📊 Created ranges for', this.sentenceRanges.filter(r => r).length, 'out of', this.sentenceData.sentences.length, 'sentences');
-  }
-
-  // Highlight a specific sentence using CSS Custom Highlight API
-  highlightSentenceModern(sentenceIndex) {
-    if (!this.useCustomHighlightAPI || !this.sentenceRanges[sentenceIndex] || typeof CSS === 'undefined') {
-      return;
-    }
-
-    // Clear previous highlight
-    if (this.currentHighlight) {
-      CSS.highlights.delete('tts-current-sentence');
-      this.currentHighlight = null;
-    }
-
-    // Create new highlight for current sentence
-    const range = this.sentenceRanges[sentenceIndex];
-    this.currentHighlight = new Highlight(range);
-    CSS.highlights.set('tts-current-sentence', this.currentHighlight);
-    
-    this.currentSentenceIndex = sentenceIndex;
-  }
-
-  // Clear CSS Custom Highlight API highlights
-  clearModernHighlights() {
-    if (this.useCustomHighlightAPI && typeof CSS !== 'undefined') {
-      // Clear current sentence highlight
-      if (this.currentHighlight) {
-        CSS.highlights.delete('tts-current-sentence');
-        this.currentHighlight = null;
-      }
-      
-      // Clear any other custom highlights
-      CSS.highlights.delete('tts-full-selection');
-    }
-  }
-
-  // Highlight full selection using CSS Custom Highlight API
-  highlightFullSelectionModern() {
-    if (!this.useCustomHighlightAPI || !this.originalSelection || typeof CSS === 'undefined') {
-      return false;
-    }
-
-    // Clear existing highlights
-    this.clearModernHighlights();
-
-    // Create highlight for full selection
-    const fullHighlight = new Highlight(this.originalSelection);
-    CSS.highlights.set('tts-full-selection', fullHighlight);
-    
-    return true;
-  }
-
-  // Get normalized text that matches sentence detector expectations
-  getNormalizedSelectionText() {
-    if (!this.originalSelection) return '';
-    
-    // Use the same text extraction that happens in the background script
-    // This ensures consistency between sentence detection and range mapping
-    const selectedText = this.originalSelection.toString();
-    
-    // Normalize whitespace to match sentence detector expectations:
-    // - Replace multiple whitespace with single spaces
-    // - Preserve sentence boundaries by ensuring periods/newlines create proper breaks
-    // - Trim leading/trailing whitespace
-    return selectedText
-      .replace(/\s+/g, ' ')  // Replace multiple whitespace with single space
-      .replace(/\.\s+([A-Z])/g, '. $1')  // Ensure space after period before capital letter
-      .trim();
-  }
-
-  // Find fuzzy match for sentences that can't be found exactly
-  findFuzzySentenceMatch(originalText, sentence, searchFromPos) {
-    // Try to find parts of the sentence that exist in the original text
-    const words = sentence.split(/\s+/);
-    const minWords = Math.max(3, Math.floor(words.length * 0.4)); // At least 40% of words or 3 words minimum
-    
-    // Try different combinations starting from the beginning of the sentence
-    for (let endIndex = minWords; endIndex <= words.length; endIndex++) {
-      const partialSentence = words.slice(0, endIndex).join(' ');
-      const foundIndex = originalText.indexOf(partialSentence, searchFromPos);
-      
-      if (foundIndex >= 0) {
-        // Found a partial match - try to extend it as far as possible
-        let extendedMatch = partialSentence;
-        let currentIndex = foundIndex + partialSentence.length;
-        
-        // Try to include more of the sentence if possible
-        for (let i = endIndex; i < words.length; i++) {
-          const nextWord = words[i];
-          const testMatch = extendedMatch + ' ' + nextWord;
-          
-          if (originalText.indexOf(testMatch, foundIndex) === foundIndex) {
-            extendedMatch = testMatch;
-            currentIndex = foundIndex + extendedMatch.length;
-          } else {
-            break;
-          }
-        }
-        
-        return {
-          start: foundIndex,
-          length: extendedMatch.length
-        };
-      }
-    }
-    
-    return null;
-  }
-
   // Helper method to get all text nodes within a range
   getTextNodesInRange(range) {
     const textNodes = [];
-    
-    // Use TreeWalker with a more precise filter
     const walker = document.createTreeWalker(
       range.commonAncestorContainer,
       NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: function(node) {
-          // Only accept text nodes that actually intersect with our range
-          // and have non-empty content
-          if (node.nodeType === Node.TEXT_NODE && 
-              node.textContent.trim().length > 0 && 
-              range.intersectsNode(node)) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-          return NodeFilter.FILTER_REJECT;
-        }
-      }
+      null
     );
     
     let node;
     while (node = walker.nextNode()) {
-      textNodes.push(node);
-    }
-    
-    // Sort nodes by their document position to ensure correct order
-    textNodes.sort((a, b) => {
-      const position = a.compareDocumentPosition(b);
-      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
-        return -1;
-      } else if (position & Node.DOCUMENT_POSITION_PRECEDING) {
-        return 1;
+      // Check if this text node intersects with our range
+      if (range.intersectsNode(node)) {
+        textNodes.push(node);
       }
-      return 0;
-    });
-    
+    }
     return textNodes;
   }
 
@@ -764,76 +426,47 @@ class TextHighlighter {
   // Helper method to create a range from text positions within a selection
   createRangeFromTextPosition(baseRange, startPos, length) {
     try {
-      // Get all text nodes within the base range
+      // Get all text nodes within the base range using a simpler approach
       const textNodes = this.getTextNodesInRange(baseRange);
       
-      // Build a comprehensive text mapping to handle cross-element issues
-      const textMapping = [];
-      let globalOffset = 0;
-      
-      // Create detailed mapping of each text node
-      textNodes.forEach(node => {
-        const nodeText = node.textContent;
-        textMapping.push({
-          node: node,
-          text: nodeText,
-          startOffset: globalOffset,
-          endOffset: globalOffset + nodeText.length,
-          length: nodeText.length
-        });
-        globalOffset += nodeText.length;
-      });
-      
-      const endPos = startPos + length;
+      let currentPos = 0;
       let startNode = null;
       let startOffset = 0;
       let endNode = null;
       let endOffset = 0;
+      const endPos = startPos + length;
 
-      // Find start and end positions using the detailed mapping
-      for (const mapping of textMapping) {
-        // Check if this mapping contains our start position
-        if (startNode === null && mapping.endOffset > startPos) {
-          startNode = mapping.node;
-          startOffset = Math.max(0, startPos - mapping.startOffset);
+      // Walk through text nodes to find start and end positions
+      for (let i = 0; i < textNodes.length; i++) {
+        const node = textNodes[i];
+        const nodeText = node.textContent;
+        const nodeLength = nodeText.length;
+
+        // Check if this node contains our start position
+        if (startNode === null && currentPos + nodeLength > startPos) {
+          startNode = node;
+          startOffset = startPos - currentPos;
         }
 
-        // Check if this mapping contains our end position
-        if (mapping.startOffset < endPos && mapping.endOffset >= endPos) {
-          endNode = mapping.node;
-          endOffset = Math.min(mapping.length, endPos - mapping.startOffset);
+        // Check if this node contains our end position
+        if (currentPos + nodeLength >= endPos) {
+          endNode = node;
+          endOffset = endPos - currentPos;
           break;
         }
-        
-        // If we haven't found the end yet but this mapping ends before endPos
-        if (mapping.endOffset <= endPos) {
-          // This could be our end node if it's the last available node
-          endNode = mapping.node;
-          endOffset = mapping.length;
-        }
+
+        currentPos += nodeLength;
       }
 
       // Create the range if we found valid positions
       if (startNode && endNode) {
         const sentenceRange = document.createRange();
-        sentenceRange.setStart(startNode, startOffset);
-        sentenceRange.setEnd(endNode, endOffset);
-        
-        // Validate the range makes sense
-        if (!sentenceRange.collapsed || length === 0) {
-          return sentenceRange;
-        }
+        sentenceRange.setStart(startNode, Math.max(0, startOffset));
+        sentenceRange.setEnd(endNode, Math.min(endNode.textContent.length, endOffset));
+        return sentenceRange;
       }
 
-      // Fallback: if we can't create precise range, return null
-      console.warn(`❌ Failed to create range for position ${startPos}-${endPos}, startNode:`, !!startNode, 'endNode:', !!endNode);
-      console.warn('📊 Available text mappings:', textMapping.length);
-      if (textMapping.length > 0) {
-        console.warn('📍 First mapping:', textMapping[0].startOffset, '-', textMapping[0].endOffset, ':', textMapping[0].text.substring(0, 30));
-        console.warn('📍 Last mapping:', textMapping[textMapping.length-1].startOffset, '-', textMapping[textMapping.length-1].endOffset, ':', textMapping[textMapping.length-1].text.substring(0, 30));
-      }
       return null;
-      
     } catch (error) {
       console.error('Error creating range from text position:', error);
       return null;
@@ -867,12 +500,6 @@ class TextHighlighter {
 
   // Highlight a specific sentence
   highlightSentence(sentenceIndex) {
-    // Use modern CSS Custom Highlight API if available
-    if (this.useCustomHighlightAPI && this.sentenceRanges && this.sentenceRanges[sentenceIndex]) {
-      return this.highlightSentenceModern(sentenceIndex);
-    }
-    
-    // Fallback to legacy highlighting
     if (!this.sentenceElements || sentenceIndex >= this.sentenceElements.length) {
       console.warn('Invalid sentence index:', sentenceIndex);
       return;
@@ -1372,16 +999,13 @@ class TextHighlighter {
       return;
     }
 
-    // Clear any existing timeouts first
-    this.clearTimingBasedHighlighting();
-
     this.speechStartTime = Date.now();
     
     // Schedule highlighting for each sentence based on timing events
     this.timepoints.forEach(timepoint => {
       const delayMs = timepoint.timeSeconds * 1000;
       
-      const timeoutId = setTimeout(() => {
+      setTimeout(() => {
         // Extract sentence index from mark name (e.g., "s0" -> 0)
         const match = timepoint.markName.match(/^s(\d+)$/);
         if (match) {
@@ -1389,30 +1013,16 @@ class TextHighlighter {
           this.highlightSentence(sentenceIndex);
         }
       }, delayMs);
-      
-      // Track this timeout so we can clear it later
-      this.activeTimeouts.push(timeoutId);
     });
   }
 
   // Clear timing-based highlighting
   clearTimingBasedHighlighting() {
-    // Clear legacy sentence timer
     if (this.sentenceTimer) {
       clearTimeout(this.sentenceTimer);
       this.sentenceTimer = null;
     }
-    
-    // Clear all tracked timing-based timeouts
-    this.activeTimeouts.forEach(timeoutId => {
-      clearTimeout(timeoutId);
-    });
-    this.activeTimeouts = [];
-    
     this.speechStartTime = null;
-    
-    // Also clear any modern CSS Custom Highlight API highlights
-    this.clearModernHighlights();
   }
 }
 
@@ -1661,17 +1271,6 @@ class FloatingControlBar {
 
       .tts-icon {
         font-size: 14px;
-      }
-
-      /* CSS Custom Highlight API styles for sentence highlighting */
-      ::highlight(tts-current-sentence) {
-        background-color: #ffeb3b;
-        color: #000;
-      }
-
-      ::highlight(tts-full-selection) {
-        background-color: #ffeb3b;
-        color: #000;
       }
     `;
     document.head.appendChild(style);
@@ -2020,12 +1619,11 @@ if (typeof window !== 'undefined') {
         if (message.action === 'start') {
           if (message.mode === 'sentence' && message.sentenceData) {
             
-            // Initialize with timepoints and paragraph boundaries if available (use modern API when supported)
-            window.textHighlighter.initializeModernSentenceHighlighting(
+            // Initialize with timepoints if available
+            window.textHighlighter.initializeSentenceHighlighting(
               message.text, 
               message.sentenceData, 
-              message.timepoints,
-              message.paragraphBoundaries
+              message.timepoints
             );
             
             // Start timing-based highlighting if we have timing events
@@ -2052,8 +1650,6 @@ if (typeof window !== 'undefined') {
 } // End of message listener guard
 
 } // End of window check
-
-} // End of TextHighlighter redeclaration guard
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {
