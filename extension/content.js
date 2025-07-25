@@ -237,7 +237,17 @@ class TextHighlighter {
 
   // Pre-process sentences to identify their positions in the DOM
   preprocessSentences() {
-    if (!this.originalSelection || !this.sentenceData) return;
+    if (!this.originalSelection || !this.sentenceData) {
+      console.warn('Missing originalSelection or sentenceData for preprocessing');
+      return;
+    }
+    
+    // Defensive check for sentence data structure
+    if (!this.sentenceData.sentences || this.sentenceData.sentences.length === 0) {
+      console.warn('No sentences detected, falling back to basic highlighting');
+      // Fallback to basic text highlighting instead of crashing
+      return;
+    }
     
     const originalText = this.originalSelection.toString();
     this.sentenceElements = [];

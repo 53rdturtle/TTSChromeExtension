@@ -207,4 +207,32 @@ describe('SSML Builder DOM Integration', () => {
       expect(result.highlightingMode).toBe('sentence');
     });
   });
+
+  describe('Real-world Bug Reproduction', () => {
+    test('should handle exact failing case from test.html', async () => {
+      // Exact reproduction of the failing case: "Short text: This is a short sentence to test the TTS functionality."
+      const container = createMockElement('DIV', 'Short text: This is a short sentence to test the TTS functionality.');
+      const result = await ssmlBuilder.createSentenceSSML('fallback', 'en', container);
+      
+      expect(result.sentences).toHaveLength(1);
+      expect(result.sentences[0]).toBe('Short text: This is a short sentence to test the TTS functionality.');
+      expect(result.method).toBe('dom_structure');
+      expect(result.ssml).toContain('Short text: This is a short sentence to test the TTS functionality.');
+      expect(result.ssml).toContain('<mark name="s0"/>');
+    });
+
+    test('should handle mixed content with inline elements', async () => {
+      // Mixed content with inline formatting like in test.html
+      const strong = createMockElement('STRONG', 'Medium text:');
+      const container = createMockElement('DIV', 'Medium text: This is a longer paragraph that contains multiple sentences. It should be enough text to test the pause and resume functionality of the TTS extension. You can select this entire paragraph and use the keyboard shortcut to start the text-to-speech.', [strong]);
+      
+      const result = await ssmlBuilder.createSentenceSSML('fallback', 'en', container);
+      
+      expect(result.sentences).toHaveLength(3);
+      expect(result.sentences[0]).toBe('Medium text: This is a longer paragraph that contains multiple sentences.');
+      expect(result.sentences[1]).toBe('It should be enough text to test the pause and resume functionality of the TTS extension.');
+      expect(result.sentences[2]).toBe('You can select this entire paragraph and use the keyboard shortcut to start the text-to-speech.');
+      expect(result.method).toBe('dom_structure');
+    });
+  });
 });

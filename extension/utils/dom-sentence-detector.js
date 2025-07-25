@@ -7,6 +7,41 @@ class DOMSentenceDetector {
   }
 
   /**
+   * Split text into sentences using sentencex library with fallback
+   * @param {string} text - Text to split into sentences
+   * @param {string} language - Language code (default: 'en')
+   * @returns {Array} Array of sentence strings
+   */
+  splitTextIntoSentences(text, language = 'en') {
+    // Try to use SimpleSentenceDetector (which uses sentencex) for accurate splitting
+    if (typeof SimpleSentenceDetector !== 'undefined') {
+      try {
+        const detector = new SimpleSentenceDetector();
+        const result = detector.detectSentences(text, language);
+        return result.sentences || [];
+      } catch (error) {
+        console.warn('Sentencex failed, using fallback:', error);
+      }
+    }
+    
+    // Fallback to improved regex if SimpleSentenceDetector not available
+    return this.fallbackSentenceSplit(text);
+  }
+
+  /**
+   * Fallback sentence splitting using improved regex
+   * @param {string} text - Text to split
+   * @returns {Array} Array of sentence strings
+   */
+  fallbackSentenceSplit(text) {
+    // Improved regex fallback (better than current primitive version)
+    return text
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+
+  /**
    * Detect sentences from DOM structure using block elements as boundaries
    * @param {Element} container - Container element to search within
    * @returns {Array} Array of sentence objects with text, element, and range
@@ -15,39 +50,86 @@ class DOMSentenceDetector {
     const sentences = [];
     const blockElements = this.getBlockElementsWithTreeWalker(container);
     
-    blockElements.forEach(element => {
-      const text = element.textContent ? element.textContent.trim() : '';
-      
-      // Skip empty elements
-      if (!text) {
-        return;
-      }
-      
-      // For elements with multiple sentences (like paragraphs), split them
-      if (element.tagName === 'P' && text.includes('. ')) {
-        // Split paragraph into sentences using lookbehind/lookahead
-        const sentenceParts = text.split(/(?<=\.)\s+(?=[A-Z])/);
-        sentenceParts.forEach((sentencePart, index) => {
-          const trimmedSentence = sentencePart.trim();
-          if (trimmedSentence) {
-            sentences.push({
-              text: trimmedSentence,
-              element: element,
-              range: this.createRangeFromElement(element, trimmedSentence)
-            });
-          }
-        });
-      } else {
-        // Single sentence element (headings, list items, etc.)
+    if (blockElements.length > 0) {
+      // Process block elements with sentencex
+      blockElements.forEach(element => {
+        this.processElementWithSentencex(element, sentences);
+      });
+    } else {
+      // CRITICAL FIX: Handle inline-only containers (no block elements found)
+      this.processInlineContainer(container, sentences);
+    }
+    
+    return sentences;
+  }
+
+  /**
+   * Process a block element using sentencex for sentence splitting
+   * @param {Element} element - DOM element to process
+   * @param {Array} sentences - Array to add detected sentences to
+   */
+  processElementWithSentencex(element, sentences) {
+    const text = element.textContent ? element.textContent.trim() : '';
+    if (!text) return;
+    
+    // Use sentencex for ALL elements, not just paragraphs with '. '
+    const sentenceParts = this.splitTextIntoSentences(text);
+    sentenceParts.forEach(sentencePart => {
+      const normalizedSentence = this.normalizeText(sentencePart);
+      if (normalizedSentence && this.isValidSentence(normalizedSentence)) {
         sentences.push({
-          text: text,
+          text: normalizedSentence,
           element: element,
-          range: this.createRangeFromElement(element, text)
+          range: this.createRangeFromElement(element, normalizedSentence)
         });
       }
     });
+  }
+
+  /**
+   * Process inline-only containers when no block elements are found
+   * @param {Element} container - Container element with inline content
+   * @param {Array} sentences - Array to add detected sentences to
+   */
+  processInlineContainer(container, sentences) {
+    const text = container.textContent ? container.textContent.trim() : '';
+    if (!text) return;
     
-    return sentences;
+    // Use sentencex to split text content from inline elements
+    const sentenceParts = this.splitTextIntoSentences(text);
+    sentenceParts.forEach(sentence => {
+      const normalizedSentence = this.normalizeText(sentence);
+      if (normalizedSentence && this.isValidSentence(normalizedSentence)) {
+        sentences.push({
+          text: normalizedSentence,
+          element: container,
+          range: this.createRangeFromElement(container, normalizedSentence)
+        });
+      }
+    });
+  }
+
+  /**
+   * Normalize text by cleaning up extra whitespace
+   * @param {string} text - Text to normalize
+   * @returns {string} Normalized text
+   */
+  normalizeText(text) {
+    if (!text) return '';
+    return text.trim().replace(/\s+/g, ' ');
+  }
+
+  /**
+   * Check if text represents a valid sentence (not just punctuation)
+   * @param {string} text - Text to validate
+   * @returns {boolean} True if valid sentence
+   */
+  isValidSentence(text) {
+    if (!text || text.length === 0) return false;
+    
+    // Filter out text that's only punctuation and/or whitespace
+    const cleanText = text.replace(/[^\w\s]/g, '').trim();
+    return cleanText.length > 0;
   }
 
   /**
