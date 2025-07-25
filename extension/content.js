@@ -570,9 +570,20 @@ class TextHighlighter {
 
   // Highlight a specific sentence
   highlightSentence(sentenceIndex) {
-    if (!this.sentenceElements || sentenceIndex >= this.sentenceElements.length) {
-      console.warn('Invalid sentence index:', sentenceIndex);
-      return;
+    // TDD FIX: Enhanced bounds checking and error handling
+    if (!this.sentenceElements || !Array.isArray(this.sentenceElements)) {
+      console.warn('No valid sentence elements available for highlighting');
+      return false;
+    }
+    
+    if (this.sentenceElements.length === 0) {
+      console.warn('Sentence elements array is empty');
+      return false;
+    }
+    
+    if (sentenceIndex < 0 || sentenceIndex >= this.sentenceElements.length) {
+      console.warn(`Sentence index ${sentenceIndex} out of bounds (0-${this.sentenceElements.length - 1})`);
+      return false;
     }
 
     // Clear previous sentence highlighting
@@ -580,8 +591,8 @@ class TextHighlighter {
     
     const sentenceElement = this.sentenceElements[sentenceIndex];
     if (!sentenceElement) {
-      console.warn('No sentence element available for index:', sentenceIndex);
-      return;
+      console.warn(`No sentence element available for index: ${sentenceIndex}`);
+      return false;
     }
 
 
@@ -596,6 +607,8 @@ class TextHighlighter {
       // Fallback: Use text-based highlighting for this sentence
       this.highlightSentenceByText(sentenceElement);
     }
+    
+    return true; // TDD FIX: Return success indicator
   }
 
   // Use the preprocessed range for highlighting  

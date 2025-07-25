@@ -80,6 +80,9 @@ class SSMLBuilder {
     const sentences = sentenceData.sentences || sentenceData.metadata?.map(m => m.text) || [];
     const metadata = sentenceData.metadata || [];
 
+    // TDD FIX: Add validation warnings for suspicious data
+    this.validateSentenceData(sentences, sentenceData.selectedElements || []);
+
     if (sentences.length === 0) {
       // Fallback to basic SSML if no sentences detected
       return SSMLBuilder.createBasicSSML('No sentences detected');
@@ -273,6 +276,38 @@ class SSMLBuilder {
     
     
     return result;
+  }
+
+  // TDD FIX: Validate sentence data for potential selection boundary issues
+  validateSentenceData(sentences, elements) {
+    if (!sentences || !elements) {
+      console.warn('Missing sentence or element data for validation');
+      return;
+    }
+    
+    const ratio = sentences.length / Math.max(elements.length, 1);
+    
+    // Warn about suspicious sentence-to-element ratios
+    if (ratio > 3) {
+      console.warn(`⚠️ High sentence-to-element ratio (${ratio.toFixed(1)}:1) - possible selection boundary issue`);
+    }
+    
+    if (ratio > 5) {
+      console.warn(`🚨 Very high sentence-to-element ratio (${ratio.toFixed(1)}:1) - likely includes unselected content`);
+    }
+    
+    if (sentences.length === 0 && elements.length > 0) {
+      console.warn('⚠️ No sentences detected despite having elements - possible parsing issue');
+    }
+    
+    if (sentences.length > 50 && elements.length < 5) {
+      console.warn('🚨 Extremely high sentence count for few elements - probable selection boundary bug');
+    }
+
+    // Additional validation
+    if (sentences.length > 100) {
+      console.warn(`🚨 Very high sentence count (${sentences.length}) - check selection boundaries`);
+    }
   }
 }
 

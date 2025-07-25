@@ -4,6 +4,17 @@
 class DOMSentenceDetector {
   constructor() {
     this.blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
+    this.isServiceWorkerContext = this.detectServiceWorkerContext();
+  }
+
+  /**
+   * Detect if we're running in a service worker context (no DOM access)
+   * @returns {boolean} True if in service worker context
+   */
+  detectServiceWorkerContext() {
+    return typeof document === 'undefined' || 
+           typeof window === 'undefined' || 
+           !document.createRange;
   }
 
   /**
@@ -256,21 +267,45 @@ class DOMSentenceDetector {
    * @returns {Range} DOM Range object
    */
   createRangeFromElement(element, text) {
+    // SERVICE WORKER CONTEXT FIX: Check if we're in a context without DOM access
+    if (this.isServiceWorkerContext) {
+      console.log('🔧 Service worker context detected, using mock range for element:', element?.tagName || 'unknown');
+      return this.createMockRange(element, text);
+    }
+
     // Check if this is a mock element in test environment
     if (element && Array.isArray(element.children)) {
-      // Return mock range for testing
-      return {
-        element: element,
-        text: text,
-        toString: () => text,
-        selectNodeContents: () => {},
-        isMockRange: true
-      };
+      return this.createMockRange(element, text);
     }
     
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    return range;
+    // Normal DOM context - use real Range API
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range;
+    } catch (error) {
+      console.warn('Failed to create DOM range, falling back to mock:', error);
+      return this.createMockRange(element, text);
+    }
+  }
+
+  /**
+   * Create a mock range object for service worker or fallback contexts
+   * @param {Element|Object} element - Element or element data
+   * @param {string} text - Text content
+   * @returns {Object} Mock range object
+   */
+  createMockRange(element, text = '') {
+    const elementText = text || element?.textContent || element?.text || '';
+    return {
+      element: element,
+      text: elementText,
+      textContent: elementText,
+      toString: () => elementText,
+      selectNodeContents: () => {},
+      isMockRange: true,
+      serviceWorkerCompatible: true
+    };
   }
 
   /**

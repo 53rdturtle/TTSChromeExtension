@@ -130,14 +130,36 @@ async function getSelectedTextFromActiveTab() {
                 const elements = [];
                 const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
                 
-                // Check if this element intersects with the selection
-                if (range.intersectsNode && range.intersectsNode(element)) {
-                  if (blockTags.includes(element.tagName)) {
-                    elements.push({
-                      tagName: element.tagName,
-                      textContent: element.textContent
-                    });
+                // TDD FIX: More precise intersection checking
+                function elementIntersectsRange(element, range) {
+                  try {
+                    // Use intersectsNode if available (modern browsers)
+                    if (range.intersectsNode) {
+                      return range.intersectsNode(element);
+                    }
+                    
+                    // Fallback: Create range for element and compare boundaries
+                    const elementRange = document.createRange();
+                    elementRange.selectNodeContents(element);
+                    
+                    // Check if ranges actually overlap
+                    return range.compareBoundaryPoints(Range.START_TO_END, elementRange) >= 0 &&
+                           range.compareBoundaryPoints(Range.END_TO_START, elementRange) <= 0;
+                  } catch (e) {
+                    // If all else fails, check if element text is included in selection
+                    const selectionText = range.toString();
+                    const elementText = element.textContent.trim();
+                    return elementText.length > 0 && selectionText.includes(elementText);
                   }
+                }
+                
+                // Check if this element intersects with the selection
+                if (blockTags.includes(element.tagName) && elementIntersectsRange(element, range)) {
+                  elements.push({
+                    tagName: element.tagName,
+                    textContent: element.textContent.trim(),
+                    outerHTML: element.outerHTML // Include for debugging selection issues
+                  });
                 }
                 
                 // Recursively check children
@@ -1005,6 +1027,8 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
             type: 'speak',
             text: result.text,
             domContainer: result.domContainer,
+            selectedElements: result.selectedElements, // TDD FIX: Include selectedElements for better TTS processing
+            elementCount: result.selectedElements ? result.selectedElements.length : 0,
             rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
             voiceName: prefs.savedVoice
           };
