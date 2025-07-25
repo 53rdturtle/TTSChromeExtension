@@ -130,26 +130,56 @@ async function getSelectedTextFromActiveTab() {
                 const elements = [];
                 const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
                 
-                // TDD FIX: More precise intersection checking
+                // TDD FIX: Selection boundary validation to prevent over-inclusion
                 function elementIntersectsRange(element, range) {
                   try {
-                    // Use intersectsNode if available (modern browsers)
-                    if (range.intersectsNode) {
-                      return range.intersectsNode(element);
+                    const selectionText = range.toString().trim();
+                    const elementText = element.textContent.trim();
+                    
+                    if (!elementText || !selectionText) {
+                      return false;
                     }
                     
-                    // Fallback: Create range for element and compare boundaries
-                    const elementRange = document.createRange();
-                    elementRange.selectNodeContents(element);
+                    // SIBLING EXCLUSION FIX: Pure text-based validation 
+                    // Removes DOM-based intersection that incorrectly includes siblings
                     
-                    // Check if ranges actually overlap
-                    return range.compareBoundaryPoints(Range.START_TO_END, elementRange) >= 0 &&
-                           range.compareBoundaryPoints(Range.END_TO_START, elementRange) <= 0;
+                    // If element text is completely contained in selection, include it
+                    if (selectionText.includes(elementText)) {
+                      return true;
+                    }
+                    
+                    // If element text contains the selection, include it (partial element selection)
+                    if (elementText.includes(selectionText)) {
+                      return true;
+                    }
+                    
+                    // Check for substantial text overlap (stricter 60%+ requirement)
+                    const elementWords = elementText.split(/\s+/).filter(w => w.length > 2);
+                    const selectionWords = selectionText.split(/\s+/).filter(w => w.length > 2);
+                    
+                    if (elementWords.length === 0 || selectionWords.length === 0) {
+                      return false;
+                    }
+                    
+                    const overlap = elementWords.filter(word => 
+                      selectionWords.some(selWord => 
+                        word.toLowerCase().includes(selWord.toLowerCase()) || 
+                        selWord.toLowerCase().includes(word.toLowerCase())
+                      )
+                    );
+                    
+                    const overlapRatio = overlap.length / elementWords.length;
+                    
+                    // BALANCED: 40% overlap OR minimum 20 characters for substantial content
+                    return overlapRatio >= 0.4 || (overlapRatio >= 0.2 && elementText.length >= 20);
+                    
                   } catch (e) {
-                    // If all else fails, check if element text is included in selection
-                    const selectionText = range.toString();
+                    console.warn('Element intersection validation error:', e);
+                    // Ultra-conservative fallback: only exact containment
+                    const selectionText = range.toString().trim();
                     const elementText = element.textContent.trim();
-                    return elementText.length > 0 && selectionText.includes(elementText);
+                    
+                    return selectionText.includes(elementText) && elementText.length > 5;
                   }
                 }
                 
@@ -456,6 +486,9 @@ class TTSService {
 class MessageHandler {
   constructor(ttsService) {
     this.ttsService = ttsService;
+    // DOUBLE-SPEAKING FIX: Track TTS sessions to prevent duplicates
+    this.activeTTSSessions = new Map();
+    this.recentTTSRequests = [];
   }
 
   // Handle incoming messages
@@ -508,6 +541,29 @@ class MessageHandler {
       return;
     }
 
+    // DOUBLE-SPEAKING FIX: Check for duplicate TTS requests
+    const requestHash = this.hashTTSRequest(message.text);
+    const now = Date.now();
+    
+    // Check for recent duplicate request (within 2 seconds)
+    const recentDuplicate = this.recentTTSRequests.find(req =>
+      req.hash === requestHash && (now - req.timestamp) < 2000
+    );
+    
+    if (recentDuplicate) {
+      console.log('🚫 Duplicate TTS request blocked:', message.text.substring(0, 50) + '...');
+      sendResponse({ status: 'blocked', reason: 'duplicate_request' });
+      return;
+    }
+    
+    // Record this request
+    this.recentTTSRequests.push({ hash: requestHash, timestamp: now });
+    
+    // Clean up old requests (keep only last 10 or last 30 seconds)
+    this.recentTTSRequests = this.recentTTSRequests.filter(req =>
+      (now - req.timestamp) < 30000
+    ).slice(-10);
+
     const options = {
       rate: message.rate,
       voiceName: message.voiceName
@@ -557,6 +613,13 @@ class MessageHandler {
         sendResponse({ status: 'error', error: error.message || error });
       }
     }
+  }
+
+  // DOUBLE-SPEAKING FIX: Create hash for TTS request deduplication
+  hashTTSRequest(text) {
+    // Create a simple hash based on normalized text content
+    const normalizedText = text.replace(/\s+/g, ' ').trim().toLowerCase();
+    return normalizedText.substring(0, 100); // Use first 100 chars as hash
   }
 
   // Check if a voice is a Google TTS voice or Chrome TTS voice

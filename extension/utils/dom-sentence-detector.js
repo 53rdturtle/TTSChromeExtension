@@ -108,7 +108,9 @@ class DOMSentenceDetector {
       metadata: metadata,
       totalSentences: sentences.length,
       method: 'dom_structure',
-      highlightingMode: 'sentence'
+      highlightingMode: 'sentence',
+      selectedElements: selectedElements, // Pass through for validation
+      originalSelectedText: selectedText // SELECTION ACCURACY FIX: Pass through for boundary validation
     };
   }
 

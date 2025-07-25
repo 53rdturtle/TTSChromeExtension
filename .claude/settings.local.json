@@ -23,7 +23,8 @@
       "Bash(npx jest:*)",
       "Bash(cp:*)",
       "Bash(npm run lint)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

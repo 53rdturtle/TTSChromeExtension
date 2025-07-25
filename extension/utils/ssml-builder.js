@@ -82,6 +82,11 @@ class SSMLBuilder {
 
     // TDD FIX: Add validation warnings for suspicious data
     this.validateSentenceData(sentences, sentenceData.selectedElements || []);
+    
+    // SELECTION ACCURACY FIX: Validate sentence content against original selected text
+    if (sentenceData.originalSelectedText) {
+      this.validateSelectionBoundaries(sentences, sentenceData.originalSelectedText);
+    }
 
     if (sentences.length === 0) {
       // Fallback to basic SSML if no sentences detected
@@ -307,6 +312,36 @@ class SSMLBuilder {
     // Additional validation
     if (sentences.length > 100) {
       console.warn(`🚨 Very high sentence count (${sentences.length}) - check selection boundaries`);
+    }
+  }
+
+  // SELECTION ACCURACY FIX: Validate sentences against original selected text
+  validateSelectionBoundaries(sentences, originalSelectedText) {
+    if (!sentences || !originalSelectedText) {
+      return;
+    }
+    
+    const ssmlText = sentences.join(' ').trim();
+    const selectedTextNormalized = originalSelectedText.replace(/\s+/g, ' ').trim();
+    
+    // Check if SSML content exceeds selection boundaries
+    if (ssmlText.length > selectedTextNormalized.length * 1.3) { // 30% tolerance for punctuation/formatting
+      console.warn(`🚨 SSML content (${ssmlText.length} chars) significantly exceeds selection boundary (${selectedTextNormalized.length} chars)`);
+      console.warn('🔍 Selected text:', selectedTextNormalized.substring(0, 100) + '...');
+      console.warn('🔍 SSML text:', ssmlText.substring(0, 100) + '...');
+    }
+    
+    // Check for content that's definitely not in selection
+    const sentenceTextsNotInSelection = sentences.filter(sentence => 
+      !selectedTextNormalized.includes(sentence.trim()) && 
+      sentence.length > 10 // Ignore short fragments
+    );
+    
+    if (sentenceTextsNotInSelection.length > 0) {
+      console.warn(`⚠️ Found ${sentenceTextsNotInSelection.length} sentences not in original selection:`);
+      sentenceTextsNotInSelection.slice(0, 3).forEach(sentence => {
+        console.warn(`  - "${sentence.substring(0, 50)}..."`);
+      });
     }
   }
 }
