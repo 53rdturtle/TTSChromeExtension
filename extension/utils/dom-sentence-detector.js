@@ -64,6 +64,61 @@ class DOMSentenceDetector {
   }
 
   /**
+   * SELECTION BUG FIX: Detect sentences from only selected elements
+   * This fixes the bug where partial selections speak entire containers
+   * @param {Array} selectedElements - Array of elements within the selection
+   * @param {string} selectedText - The actual selected text (for validation)
+   * @returns {Object} Sentence data object with sentences and metadata
+   */
+  detectSentencesFromSelection(selectedElements, selectedText) {
+    const sentences = [];
+    
+    if (!selectedElements || selectedElements.length === 0) {
+      console.warn('No selected elements provided for sentence detection');
+      return { sentences: [], metadata: [], totalSentences: 0, method: 'dom_structure' };
+    }
+    
+    // Process only the selected elements
+    this.processSelectedElements(selectedElements, sentences);
+    
+    // Create sentence data format for compatibility
+    const sentenceTexts = sentences.map(s => s.text);
+    const metadata = sentences.map((sentence, index) => ({
+      id: index,
+      text: sentence.text,
+      element: sentence.element,
+      range: sentence.range,
+      startPos: this.calculateTextPosition(sentences, index),
+      length: sentence.text.length
+    }));
+
+    return {
+      sentences: sentenceTexts,
+      metadata: metadata,
+      totalSentences: sentences.length,
+      method: 'dom_structure',
+      highlightingMode: 'sentence'
+    };
+  }
+
+  /**
+   * Process only the selected elements for sentence detection
+   * @param {Array} selectedElements - Array of elements within the selection
+   * @param {Array} sentences - Array to add detected sentences to
+   */
+  processSelectedElements(selectedElements, sentences) {
+    selectedElements.forEach(element => {
+      // Check if element is a block element
+      if (this.blockTags.includes(element.tagName)) {
+        this.processElementWithSentencex(element, sentences);
+      } else {
+        // Handle inline elements or text nodes
+        this.processInlineContainer(element, sentences);
+      }
+    });
+  }
+
+  /**
    * Process a block element using sentencex for sentence splitting
    * @param {Element} element - DOM element to process
    * @param {Array} sentences - Array to add detected sentences to

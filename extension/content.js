@@ -221,6 +221,13 @@ class TextHighlighter {
     this.sentenceElements = [];
     this.timepoints = timepoints;
     
+    // SELECTION BUG FIX: Validate sentence data corresponds to selection
+    if (!this.validateSentenceData(text, sentenceData)) {
+      console.warn('🚨 Sentence data validation failed, falling back to basic highlighting');
+      this.sentenceData = null;
+      return;
+    }
+    
     
     // Store the original selection for sentence-based highlighting
     const selection = window.getSelection();
@@ -233,6 +240,52 @@ class TextHighlighter {
     
     // Pre-process sentences for faster highlighting
     this.preprocessSentences();
+  }
+
+  // SELECTION BUG FIX: Validate that sentence data corresponds to actual selection
+  validateSentenceData(text, sentenceData) {
+    if (!sentenceData || !sentenceData.sentences || sentenceData.sentences.length === 0) {
+      console.warn('Invalid sentence data structure');
+      return false;
+    }
+    
+    // Check if sentence data method indicates selection-aware processing
+    if (sentenceData.method === 'dom_structure') {
+      console.log('✅ Using selection-aware DOM sentence detection');
+      return true;
+    }
+    
+    // Validate that concatenated sentences approximately match the selected text
+    const concatenatedSentences = sentenceData.sentences.join(' ');
+    const normalizedText = text.replace(/\s+/g, ' ').trim();
+    const normalizedSentences = concatenatedSentences.replace(/\s+/g, ' ').trim();
+    
+    // Allow for minor differences due to normalization
+    const similarity = this.calculateTextSimilarity(normalizedText, normalizedSentences);
+    if (similarity < 0.8) {
+      console.warn(`Text similarity too low (${similarity}): selected="${normalizedText.substring(0, 100)}..." vs sentences="${normalizedSentences.substring(0, 100)}..."`);
+      return false;
+    }
+    
+    console.log(`✅ Sentence data validation passed (similarity: ${similarity})`);
+    return true;
+  }
+
+  // Calculate text similarity (simple character-based approach)
+  calculateTextSimilarity(text1, text2) {
+    const maxLength = Math.max(text1.length, text2.length);
+    if (maxLength === 0) return 1.0;
+    
+    let matches = 0;
+    const minLength = Math.min(text1.length, text2.length);
+    
+    for (let i = 0; i < minLength; i++) {
+      if (text1[i] === text2[i]) {
+        matches++;
+      }
+    }
+    
+    return matches / maxLength;
   }
 
   // Pre-process sentences to identify their positions in the DOM

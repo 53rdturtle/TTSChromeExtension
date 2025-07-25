@@ -47,10 +47,18 @@ class SSMLBuilder {
   }
 
   // Create SSML with sentence-level marks for progressive highlighting
-  async createSentenceSSML(text, language = 'en', domContainer = null) {
-    // If DOM container is provided, use DOM-based detection
+  async createSentenceSSML(text, language = 'en', domContainer = null, selectedElements = null) {
+    // SELECTION BUG FIX: Use selectedElements if provided (new API)
+    if (selectedElements && selectedElements.length > 0 && typeof DOMSentenceDetector !== 'undefined') {
+      console.log('🏗️ Using selection-aware DOM sentence detection');
+      const domDetector = new DOMSentenceDetector();
+      const sentenceData = domDetector.detectSentencesFromSelection(selectedElements, text);
+      return this.buildSSMLFromSentenceData(sentenceData);
+    }
+    
+    // Legacy: If DOM container is provided, use DOM-based detection (backward compatibility)
     if (domContainer && typeof DOMSentenceDetector !== 'undefined') {
-      console.log('🏗️ Using DOM-based sentence detection');
+      console.log('🏗️ Using legacy DOM-based sentence detection');
       const domDetector = new DOMSentenceDetector();
       const sentenceData = domDetector.createSentenceData(domContainer);
       return this.buildSSMLFromSentenceData(sentenceData);

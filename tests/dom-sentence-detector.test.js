@@ -431,4 +431,154 @@ describe('DOMSentenceDetector Module', () => {
       expect(sentences).toHaveLength(0);
     });
   });
+
+  describe('SELECTION BUG: Selection Boundary Detection (TDD)', () => {
+    
+    test('should handle partial selection spanning multiple elements', () => {
+      // Reproduce the exact bug: user selects "Sample Text for Testing\nShort text: sentence"
+      // but DOM container includes unselected siblings
+      const h2 = createMockElement('H2', 'Sample Text for Testing');
+      const strong = createMockElement('STRONG', 'Short text:');
+      const div1 = createMockElement('DIV', 'Short text: This is a short sentence to test the TTS functionality.', [strong]);
+      const div2 = createMockElement('DIV', 'Medium text: This is unselected content that should NOT be included.');
+      const div3 = createMockElement('DIV', 'Long text: More unselected content.');
+      const container = createMockElement('DIV', '', [h2, div1, div2, div3]);
+      
+      // User's actual selection (not entire container)
+      const selectedText = 'Sample Text for Testing\nShort text: This is a short sentence to test the TTS functionality.';
+      const selectedElements = [h2, div1]; // Only these elements are in the selection
+      
+      // Current behavior: processes entire container (WRONG - causes the bug)
+      const currentResult = detector.detectSentencesFromDOM(container);
+      expect(currentResult.length).toBeGreaterThan(2); // Gets all sentences, not just selected
+      
+      // Expected behavior: should only process selected elements (FIX THE BUG)
+      if (detector.detectSentencesFromSelection) {
+        const correctResult = detector.detectSentencesFromSelection(selectedElements, selectedText);
+        expect(correctResult.sentences).toHaveLength(2);
+        expect(correctResult.sentences[0]).toBe('Sample Text for Testing');
+        expect(correctResult.sentences[1]).toBe('Short text: This is a short sentence to test the TTS functionality.');
+        
+        // Should NOT include unselected content
+        expect(correctResult.sentences.join(' ')).not.toContain('Medium text');
+        expect(correctResult.sentences.join(' ')).not.toContain('Long text');
+      }
+    });
+
+    test('should only process elements within selection boundaries', () => {
+      // Test that unselected siblings are excluded from sentence detection
+      const selected1 = createMockElement('P', 'Selected paragraph 1.');
+      const unselected1 = createMockElement('P', 'This should NOT be included in results.');
+      const selected2 = createMockElement('P', 'Selected paragraph 2.');
+      const unselected2 = createMockElement('P', 'Another unselected paragraph.');
+      const container = createMockElement('DIV', '', [selected1, unselected1, selected2, unselected2]);
+      
+      const selectionText = 'Selected paragraph 1.\nSelected paragraph 2.';
+      const selectedElements = [selected1, selected2];
+      
+      // Current behavior: processes entire container including unselected siblings
+      const currentResult = detector.detectSentencesFromDOM(container);
+      expect(currentResult).toHaveLength(4); // All paragraphs (WRONG)
+      
+      // Expected behavior: only process selected elements
+      if (detector.detectSentencesFromSelection) {
+        const correctResult = detector.detectSentencesFromSelection(selectedElements, selectionText);
+        expect(correctResult.sentences).toHaveLength(2);
+        expect(correctResult.sentences[0]).toBe('Selected paragraph 1.');
+        expect(correctResult.sentences[1]).toBe('Selected paragraph 2.');
+        
+        // Verify unselected content is excluded
+        expect(correctResult.sentences).not.toContain('This should NOT be included in results.');
+        expect(correctResult.sentences).not.toContain('Another unselected paragraph.');
+      }
+    });
+
+    test('should handle complex nested selections with unselected siblings', () => {
+      // Complex case: selection spans some nested elements but not others
+      const titleDiv = createMockElement('DIV', '', [
+        createMockElement('H2', 'Selected Title')
+      ]);
+      
+      const contentDiv = createMockElement('DIV', '', [
+        createMockElement('P', 'Selected first paragraph.'),
+        createMockElement('P', 'Unselected middle paragraph.'), // NOT in selection
+        createMockElement('P', 'Selected last paragraph.')
+      ]);
+      
+      const container = createMockElement('DIV', '', [titleDiv, contentDiv]);
+      
+      // User selects title + first and last paragraphs, but NOT middle
+      const selectedElements = [
+        titleDiv.children[0], // H2
+        contentDiv.children[0], // First P
+        contentDiv.children[2]  // Last P
+      ];
+      const selectionText = 'Selected Title\nSelected first paragraph.\nSelected last paragraph.';
+      
+      if (detector.detectSentencesFromSelection) {
+        const result = detector.detectSentencesFromSelection(selectedElements, selectionText);
+        
+        expect(result.sentences).toHaveLength(3);
+        expect(result.sentences[0]).toBe('Selected Title');
+        expect(result.sentences[1]).toBe('Selected first paragraph.');
+        expect(result.sentences[2]).toBe('Selected last paragraph.');
+        
+        // Critical: should NOT include the middle paragraph
+        expect(result.sentences).not.toContain('Unselected middle paragraph.');
+      }
+    });
+
+    test('should handle selection with inline elements and unselected siblings', () => {
+      // Test case mimicking the test.html structure
+      const h2 = createMockElement('H2', 'Sample Text for Testing');
+      
+      // Selected div with inline elements
+      const selectedStrong = createMockElement('STRONG', 'Short text:');
+      const selectedDiv = createMockElement('DIV', 'Short text: This is a short sentence to test the TTS functionality.', [selectedStrong]);
+      
+      // Unselected sibling divs
+      const unselectedDiv1 = createMockElement('DIV', 'Medium text: This is a longer paragraph that should not be included.');
+      const unselectedDiv2 = createMockElement('DIV', 'Long text: This is much longer content that should also not be included.');
+      
+      const container = createMockElement('DIV', '', [h2, selectedDiv, unselectedDiv1, unselectedDiv2]);
+      
+      const selectedElements = [h2, selectedDiv];
+      const selectionText = 'Sample Text for Testing\nShort text: This is a short sentence to test the TTS functionality.';
+      
+      if (detector.detectSentencesFromSelection) {
+        const result = detector.detectSentencesFromSelection(selectedElements, selectionText);
+        
+        expect(result.sentences).toHaveLength(2);
+        expect(result.sentences[0]).toBe('Sample Text for Testing');
+        expect(result.sentences[1]).toBe('Short text: This is a short sentence to test the TTS functionality.');
+        
+        // Should not include any unselected content
+        expect(result.sentences.join(' ')).not.toContain('Medium text');
+        expect(result.sentences.join(' ')).not.toContain('Long text');
+      }
+    });
+
+    test('should preserve backward compatibility with full container selection', () => {
+      // When user selects entire container, behavior should be unchanged
+      const h2 = createMockElement('H2', 'Title');
+      const p1 = createMockElement('P', 'First paragraph.');
+      const p2 = createMockElement('P', 'Second paragraph.');
+      const container = createMockElement('DIV', '', [h2, p1, p2]);
+      
+      // Full container selection
+      const allElements = [h2, p1, p2];
+      const fullText = 'Title\nFirst paragraph.\nSecond paragraph.';
+      
+      const oldResult = detector.detectSentencesFromDOM(container);
+      
+      if (detector.detectSentencesFromSelection) {
+        const newResult = detector.detectSentencesFromSelection(allElements, fullText);
+        
+        // Results should be identical for full selections
+        const oldSentenceTexts = oldResult.map(s => s.text);
+        expect(newResult.sentences).toEqual(oldSentenceTexts);
+        expect(newResult.sentences).toHaveLength(3);
+      }
+    });
+  });
 });

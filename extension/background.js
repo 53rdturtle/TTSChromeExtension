@@ -120,53 +120,61 @@ async function getSelectedTextFromActiveTab() {
               return null;
             }
             
-            // Get the DOM container for the selection
-            let domContainer = null;
+            // SELECTION BUG FIX: Get only selected elements, not entire container
+            let selectedElements = [];
             if (selection.rangeCount > 0) {
               const range = selection.getRangeAt(0);
-              domContainer = range.commonAncestorContainer;
               
-              // If the common ancestor is a text node, get its parent element
-              if (domContainer.nodeType === Node.TEXT_NODE) {
-                domContainer = domContainer.parentElement;
-              }
-              
-              // Extract a serializable representation of the DOM structure
-              function serializeDOMStructure(element) {
+              // Find all elements that intersect with the selection range
+              function findElementsInSelection(element, range) {
+                const elements = [];
                 const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
                 
-                const result = {
-                  tagName: element.tagName,
-                  textContent: element.textContent,
-                  children: []
-                };
-                
-                // Only include relevant child elements
-                for (const child of element.children) {
-                  if (blockTags.includes(child.tagName)) {
-                    result.children.push(serializeDOMStructure(child));
+                // Check if this element intersects with the selection
+                if (range.intersectsNode && range.intersectsNode(element)) {
+                  if (blockTags.includes(element.tagName)) {
+                    elements.push({
+                      tagName: element.tagName,
+                      textContent: element.textContent
+                    });
                   }
                 }
                 
-                return result;
+                // Recursively check children
+                if (element.children) {
+                  for (const child of element.children) {
+                    elements.push(...findElementsInSelection(child, range));
+                  }
+                }
+                
+                return elements;
               }
               
-              // Only serialize if the container has relevant structure
-              if (domContainer && domContainer.children && domContainer.children.length > 0) {
-                try {
-                  domContainer = serializeDOMStructure(domContainer);
-                } catch (e) {
-                  // Fallback to null if serialization fails
-                  domContainer = null;
+              // Start from the common ancestor but only include intersecting elements
+              const commonAncestor = range.commonAncestorContainer;
+              const startElement = commonAncestor.nodeType === Node.TEXT_NODE 
+                ? commonAncestor.parentElement 
+                : commonAncestor;
+              
+              try {
+                selectedElements = findElementsInSelection(startElement, range);
+                
+                // If no block elements found, try to handle inline content
+                if (selectedElements.length === 0 && startElement) {
+                  selectedElements = [{
+                    tagName: startElement.tagName,
+                    textContent: selectedText
+                  }];
                 }
-              } else {
-                domContainer = null;
+              } catch (e) {
+                console.warn('Selection boundary detection failed:', e);
+                selectedElements = [];
               }
             }
             
             return {
               text: selectedText,
-              domContainer: domContainer
+              selectedElements: selectedElements
             };
           }
         }, (results) => {
@@ -497,10 +505,11 @@ class MessageHandler {
       
       if (isGoogleTTSVoice && googleTTSEnabled) {
         console.log('🎵 Using Google TTS API with SSML highlighting');
-        // Use SSML highlighting for Google TTS voices with DOM container if available
+        // SELECTION BUG FIX: Use SSML highlighting for Google TTS voices with selectedElements if available
         const result = await googleTTSService.speakWithHighlighting(message.text, {
           ...options,
-          domContainer: message.domContainer
+          domContainer: message.domContainer, // Legacy - for backward compatibility
+          selectedElements: message.selectedElements // New - for selection-aware processing
         });
         sendResponse(result);
         
