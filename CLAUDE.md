@@ -222,6 +222,76 @@ Auto-scroll, animations, layered highlighting, and polish.
 
 **IMPORTANT**: Do not commit or push to origin unless explicitly instructed by the user. Only make code changes, run tests, and update documentation. Wait for explicit instructions before running git commands.
 
+## Multi-DOM Sentence Highlighting Implementation
+
+### New Strategy: DOM-Structure-Based Sentence Detection
+
+**Core Insight**: Use HTML block elements as natural sentence boundaries instead of complex text parsing.
+
+#### Approach
+- **TreeWalker Element Traversal**: Traverse DOM elements directly using `TreeWalker` with `NodeFilter.SHOW_ELEMENT`
+- **Natural Boundaries**: Block elements (`P`, `H1`, `H2`, `H3`, `LI`, `DIV`, `HEADER`) define sentence boundaries
+- **Direct Mapping**: Each block element maps directly to a sentence range (no position calculation)
+
+#### Benefits
+- **Eliminates text parsing complexity**: HTML structure defines boundaries naturally
+- **Perfect multi-DOM support**: Sentences span discrete DOM elements cleanly
+- **Leverages existing TreeWalker**: Uses browser-optimized DOM traversal
+- **Simpler and more reliable**: DOM structure is the source of truth
+
+#### Test Cases for Validation
+
+**Case 1: Mixed Content (5 sentences expected)**
+```
+Sample Text for Testing
+Short text: This is a short sentence to test the TTS functionality.
+Medium text: This is a longer paragraph that contains multiple sentences. It should be enough text to test the pause and resume functionality of the TTS extension. You can select this entire paragraph and use the keyboard shortcut to start the text-to-speech.
+```
+
+**Case 2: Instructions Format (6 sentences expected)**
+```
+Instructions
+To test the TTS extension with floating control bar:
+
+Select any text on this page
+Press Ctrl+Shift+Z (or your configured shortcut)
+A floating control bar should appear in the top-right corner
+Use the control bar to stop, pause, or resume the TTS
+```
+
+#### Implementation Phases with Testing
+
+**Phase 1: Test Infrastructure**
+- Create mock DOM matching test cases
+- Set up unit tests for TreeWalker element detection
+- Define acceptance criteria based on expected sentence counts
+
+**Phase 2: TreeWalker Element Detection (TDD)**
+- Write tests first for block element filtering behavior
+- Implement TreeWalker with `NodeFilter.SHOW_ELEMENT` for target elements
+- Validate each element type detection incrementally
+
+**Phase 3: Element-to-Range Mapping (Test-Driven)**
+- Unit tests for direct element → range creation
+- Implement mapping without position calculation complexity
+- Test edge cases: empty elements, nested structures, mixed content
+
+**Phase 4: SSML Builder Integration (Incremental)**
+- Mock SSML Builder with DOM-structure approach
+- Replace text-based detection with element-based detection
+- Validate SSML output matches expected sentence structure
+
+**Phase 5: Content Script Integration (E2E Validated)**
+- Update content script highlighting to use element ranges
+- Test highlighting across block elements
+- End-to-end testing with both validation cases
+
+#### Testing Strategy
+- **Incremental validation**: Test each phase before proceeding
+- **Acceptance criteria**: Use provided test cases as success metrics
+- **Mock Chrome APIs**: Isolated unit testing approach
+- **Progressive integration**: Layer testing from unit → integration → E2E
+
 ## Product Feature Considerations
 
 - Product should auto-speak when opening the popup

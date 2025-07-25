@@ -35,7 +35,10 @@
       "<rootDir>/tests/options-quota.test.js",
       "<rootDir>/tests/background-quota.test.js",
       "<rootDir>/tests/popup-quota.test.js",
-      "<rootDir>/tests/content.test.js"
+      "<rootDir>/tests/content.test.js",
+      "<rootDir>/tests/dom-sentence-detection.test.js",
+      "<rootDir>/tests/dom-sentence-detector.test.js",
+      "<rootDir>/tests/ssml-builder-dom-integration.test.js"
     ],
     "collectCoverageFrom": [
       "extension/**/*.js",

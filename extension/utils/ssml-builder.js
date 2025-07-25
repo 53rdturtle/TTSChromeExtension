@@ -47,7 +47,16 @@ class SSMLBuilder {
   }
 
   // Create SSML with sentence-level marks for progressive highlighting
-  async createSentenceSSML(text, language = 'en') {
+  async createSentenceSSML(text, language = 'en', domContainer = null) {
+    // If DOM container is provided, use DOM-based detection
+    if (domContainer && typeof DOMSentenceDetector !== 'undefined') {
+      console.log('🏗️ Using DOM-based sentence detection');
+      const domDetector = new DOMSentenceDetector();
+      const sentenceData = domDetector.createSentenceData(domContainer);
+      return this.buildSSMLFromSentenceData(sentenceData);
+    }
+    
+    // Fallback to text-based detection
     await this.initializeSentenceDetector();
     
     // Get sentence metadata
@@ -55,12 +64,17 @@ class SSMLBuilder {
       ? this.sentenceDetector.getSentenceMetadata(text, language)
       : await this.getSentenceDataFallback(text, language);
 
+    return this.buildSSMLFromSentenceData(sentenceData);
+  }
+
+  // Build SSML from sentence data (used by both text-based and DOM-based detection)
+  buildSSMLFromSentenceData(sentenceData) {
     const sentences = sentenceData.sentences || sentenceData.metadata?.map(m => m.text) || [];
     const metadata = sentenceData.metadata || [];
 
     if (sentences.length === 0) {
       // Fallback to basic SSML if no sentences detected
-      return SSMLBuilder.createBasicSSML(text);
+      return SSMLBuilder.createBasicSSML('No sentences detected');
     }
 
     // Build SSML with sentence marks
@@ -114,7 +128,8 @@ class SSMLBuilder {
       sentences: sentences,
       metadata: metadata,
       totalSentences: sentences.length,
-      highlightingMode: 'sentence'
+      highlightingMode: sentenceData.highlightingMode || 'sentence',
+      method: sentenceData.method
     };
   }
 

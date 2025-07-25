@@ -1,6 +1,13 @@
 // Content script for TTS Chrome Extension
 // Handles floating control bar display and text highlighting
 
+// Prevent multiple injections of the same script
+if (typeof window.TTSContentScriptLoaded !== 'undefined') {
+  console.log('🔄 TTS Content script already loaded, skipping re-initialization');
+} else {
+  window.TTSContentScriptLoaded = true;
+  console.log('🚀 Initializing TTS Content script');
+
 // TextHighlighter class to handle text highlighting during TTS
 class TextHighlighter {
   constructor() {
@@ -1650,6 +1657,8 @@ if (typeof window !== 'undefined') {
 } // End of message listener guard
 
 } // End of window check
+
+} // End of TTSContentScriptLoaded guard
 
 // Export classes for testing
 if (typeof module !== 'undefined' && module.exports) {

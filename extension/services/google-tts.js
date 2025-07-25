@@ -323,8 +323,9 @@ class GoogleTTSService {
       let result;
       
       if (useSentenceHighlighting) {
-        // Create sentence-level SSML with marks
-        ssmlResult = await SSMLBuilder.createSentenceSSML(text, options.lang || 'en');
+        // Create sentence-level SSML with marks, using DOM container if available
+        const ssmlBuilder = new SSMLBuilder();
+        ssmlResult = await ssmlBuilder.createSentenceSSML(text, options.lang || 'en', options.domContainer);
         
         // Store sentence data for highlighting
         this.currentText = text;

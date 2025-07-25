@@ -3,6 +3,7 @@
 // Import Google TTS service and dependencies
 importScripts('utils/ssml-builder.js');
 importScripts('utils/simple-sentence-detector.js');
+importScripts('utils/dom-sentence-detector.js');
 importScripts('services/google-tts.js');
 
 // Verify SSML Builder was loaded successfully
@@ -12,6 +13,10 @@ if (typeof SSMLBuilder === 'undefined') {
 
 if (typeof SimpleSentenceDetector === 'undefined') {
   console.error('❌ SimpleSentenceDetector failed to load in service worker context');
+}
+
+if (typeof DOMSentenceDetector === 'undefined') {
+  console.error('❌ DOMSentenceDetector failed to load in service worker context');
 }
 
 // Default highlighting settings - Enhanced per-mode configuration
@@ -95,7 +100,7 @@ async function broadcastControlBarState() {
   }
 }
 
-// Shared utility to get selected text from active tab
+// Shared utility to get selected text and DOM structure from active tab
 async function getSelectedTextFromActiveTab() {
   return new Promise((resolve) => {
     // Query for tabs in the current window, excluding popup windows
@@ -107,10 +112,66 @@ async function getSelectedTextFromActiveTab() {
       if (tabs && tabs[0]) {
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
-          func: () => window.getSelection().toString()
+          func: () => {
+            const selection = window.getSelection();
+            const selectedText = selection.toString();
+            
+            if (!selectedText || selectedText.trim() === "") {
+              return null;
+            }
+            
+            // Get the DOM container for the selection
+            let domContainer = null;
+            if (selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
+              domContainer = range.commonAncestorContainer;
+              
+              // If the common ancestor is a text node, get its parent element
+              if (domContainer.nodeType === Node.TEXT_NODE) {
+                domContainer = domContainer.parentElement;
+              }
+              
+              // Extract a serializable representation of the DOM structure
+              function serializeDOMStructure(element) {
+                const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
+                
+                const result = {
+                  tagName: element.tagName,
+                  textContent: element.textContent,
+                  children: []
+                };
+                
+                // Only include relevant child elements
+                for (const child of element.children) {
+                  if (blockTags.includes(child.tagName)) {
+                    result.children.push(serializeDOMStructure(child));
+                  }
+                }
+                
+                return result;
+              }
+              
+              // Only serialize if the container has relevant structure
+              if (domContainer && domContainer.children && domContainer.children.length > 0) {
+                try {
+                  domContainer = serializeDOMStructure(domContainer);
+                } catch (e) {
+                  // Fallback to null if serialization fails
+                  domContainer = null;
+                }
+              } else {
+                domContainer = null;
+              }
+            }
+            
+            return {
+              text: selectedText,
+              domContainer: domContainer
+            };
+          }
         }, (results) => {
-          const selectedText = results && results[0] && results[0].result;
-          resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
+          const result = results && results[0] && results[0].result;
+          resolve(result);
         });
       } else {
         // Alternative: get the last active tab
@@ -122,10 +183,66 @@ async function getSelectedTextFromActiveTab() {
             const tab = allTabs[0];
             chrome.scripting.executeScript({
               target: { tabId: tab.id },
-              func: () => window.getSelection().toString()
+              func: () => {
+                const selection = window.getSelection();
+                const selectedText = selection.toString();
+                
+                if (!selectedText || selectedText.trim() === "") {
+                  return null;
+                }
+                
+                // Get the DOM container for the selection
+                let domContainer = null;
+                if (selection.rangeCount > 0) {
+                  const range = selection.getRangeAt(0);
+                  domContainer = range.commonAncestorContainer;
+                  
+                  // If the common ancestor is a text node, get its parent element
+                  if (domContainer.nodeType === Node.TEXT_NODE) {
+                    domContainer = domContainer.parentElement;
+                  }
+                  
+                  // Extract a serializable representation of the DOM structure
+                  function serializeDOMStructure(element) {
+                    const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV', 'HEADER', 'SECTION', 'ARTICLE'];
+                    
+                    const result = {
+                      tagName: element.tagName,
+                      textContent: element.textContent,
+                      children: []
+                    };
+                    
+                    // Only include relevant child elements
+                    for (const child of element.children) {
+                      if (blockTags.includes(child.tagName)) {
+                        result.children.push(serializeDOMStructure(child));
+                      }
+                    }
+                    
+                    return result;
+                  }
+                  
+                  // Only serialize if the container has relevant structure
+                  if (domContainer && domContainer.children && domContainer.children.length > 0) {
+                    try {
+                      domContainer = serializeDOMStructure(domContainer);
+                    } catch (e) {
+                      // Fallback to null if serialization fails
+                      domContainer = null;
+                    }
+                  } else {
+                    domContainer = null;
+                  }
+                }
+                
+                return {
+                  text: selectedText,
+                  domContainer: domContainer
+                };
+              }
             }, (results) => {
-              const selectedText = results && results[0] && results[0].result;
-              resolve(selectedText && selectedText.trim() !== "" ? selectedText : null);
+              const result = results && results[0] && results[0].result;
+              resolve(result);
             });
           } else {
             resolve(null);
@@ -380,8 +497,11 @@ class MessageHandler {
       
       if (isGoogleTTSVoice && googleTTSEnabled) {
         console.log('🎵 Using Google TTS API with SSML highlighting');
-        // Use SSML highlighting for Google TTS voices
-        const result = await googleTTSService.speakWithHighlighting(message.text, options);
+        // Use SSML highlighting for Google TTS voices with DOM container if available
+        const result = await googleTTSService.speakWithHighlighting(message.text, {
+          ...options,
+          domContainer: message.domContainer
+        });
         sendResponse(result);
         
       } else {
@@ -548,7 +668,8 @@ class MessageHandler {
   // Handle get selected text message
   async handleGetSelectedText(sendResponse) {
     try {
-      const selectedText = await getSelectedTextFromActiveTab();
+      const result = await getSelectedTextFromActiveTab();
+      const selectedText = result ? result.text : null;
       sendResponse({ status: 'success', selectedText: selectedText });
     } catch (error) {
       console.error('Error getting selected text:', error);
@@ -867,13 +988,14 @@ chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addLis
       await messageHandler.handleStop((response) => {});
     } else {
       // Start speaking selected text
-      const selectedText = await getSelectedTextFromActiveTab();
-      if (selectedText) {
+      const result = await getSelectedTextFromActiveTab();
+      if (result && result.text) {
         // Get last used voice and rate from storage (same keys as popup)
         chrome.storage.sync.get(['savedVoice', 'savedRate'], async (prefs) => {
           const message = {
             type: 'speak',
-            text: selectedText,
+            text: result.text,
+            domContainer: result.domContainer,
             rate: prefs.savedRate ? parseFloat(prefs.savedRate) : 1.0,
             voiceName: prefs.savedVoice
           };
